@@ -38,6 +38,7 @@ class AdminController < ApplicationController
   end
 
   def update_features_enabled
+    Seek::Config.public_seek_enabled= string_to_boolean params[:public_seek_enabled]
     Seek::Config.events_enabled= string_to_boolean params[:events_enabled]
     Seek::Config.jerm_enabled= string_to_boolean params[:jerm_enabled]
     Seek::Config.email_enabled= string_to_boolean params[:email_enabled]
@@ -118,12 +119,14 @@ class AdminController < ApplicationController
 
   def update_others
     update_flag = true
-    Seek::Config.site_base_host= params[:site_base_host]
+    Seek::Config.site_base_host = params[:site_base_host]
     #check valid email
-    Seek::Config.pubmed_api_email= params[:pubmed_api_email] if params[:pubmed_api_email] == '' || (check_valid_email params[:pubmed_api_email], "pubmed api email")
-    Seek::Config.crossref_api_email= params[:crossref_api_email] if params[:crossref_api_email] == '' || (check_valid_email params[:crossref_api_email], "crossref api email")
-    Seek::Config.tag_threshold= params[:tag_threshold] if only_integer params[:tag_threshold], "tag threshold"
-    Seek::Config.max_visible_tags= params[:max_visible_tags] if only_positive_integer params[:max_visible_tags], "maximum visible tags"
+    Seek::Config.pubmed_api_email = params[:pubmed_api_email] if params[:pubmed_api_email] == '' || (check_valid_email params[:pubmed_api_email], "pubmed api email")
+    Seek::Config.crossref_api_email = params[:crossref_api_email] if params[:crossref_api_email] == '' || (check_valid_email params[:crossref_api_email], "crossref api email")
+
+    Seek::Config.bioportal_api_key = params[:bioportal_api_key]
+    Seek::Config.tag_threshold = params[:tag_threshold] if only_integer params[:tag_threshold], "tag threshold"
+    Seek::Config.max_visible_tags = params[:max_visible_tags] if only_positive_integer params[:max_visible_tags], "maximum visible tags"
     update_flag = (params[:pubmed_api_email] == '' ||(check_valid_email params[:pubmed_api_email], "pubmed api email")) && (params[:crossref_api_email] == '' || (check_valid_email params[:crossref_api_email], "crossref api email")) && (only_integer params[:tag_threshold], "tag threshold") && (only_positive_integer params[:max_visible_tags], "maximum visible tags")
     update_redirect_to update_flag,'others'
   end
@@ -144,28 +147,28 @@ class AdminController < ApplicationController
   def edit_tag
     if request.post?
       @tag=ActsAsTaggableOn::Tag.find(params[:id])
+      replacement_tags = []
+
+      params[:tags_autocompleter_selected_ids].each do |selected_id|
+          replacement_tags << ActsAsTaggableOn::Tag.find(selected_id)
+      end unless params[:tags_autocompleter_selected_ids].nil?
+      params[:tags_autocompleter_unrecognized_items].select{|t| !t.blank?}.each do |item|
+          tag = ActsAsTaggableOn::Tag.find_by_name(item)
+          tag = ActsAsTaggableOn::Tag.create :name=>item if tag.nil?
+          replacement_tags << tag
+      end unless params[:tags_autocompleter_unrecognized_items].nil?
+      
       @tag.taggings.select{|t| !t.taggable.nil?}.each do |tagging|
-        context_sym=tagging.context.to_sym
+        context=tagging.context
         taggable=tagging.taggable
-        current_tags=taggable.tag_list_on(context_sym).select{|tag| tag!=@tag.name}
-        new_tag_list=current_tags.join(", ")
-
-        replacement_tags=", "
-        params[:tags_autocompleter_selected_ids].each do |selected_id|
-          tag=ActsAsTaggableOn::Tag.find(selected_id)
-          replacement_tags << tag.name << ","
-        end unless params[:tags_autocompleter_selected_ids].nil?
-        params[:tags_autocompleter_unrecognized_items].each do |item|
-          replacement_tags << item << ","
-        end unless params[:tags_autocompleter_unrecognized_items].nil?
-
-        new_tag_list=new_tag_list << replacement_tags
-
-        method_sym="#{tagging.context.singularize}_list=".to_sym
-
-        taggable.send method_sym, new_tag_list
-
-        taggable.save
+        tagger=tagging.tagger
+        tagging.destroy unless replacement_tags.include?(@tag)
+        replacement_tags.each do |tag|
+          if ActsAsTaggableOn::Tagging.find(:all,:conditions=>{:context=>context,:tag_id=>tag.id}).select{|t| t.tagger==tagger && t.taggable==taggable}.empty?
+            new_tagging = ActsAsTaggableOn::Tagging.new :taggable=>taggable,:tagger=>tagger, :tag_id=>tag.id, :context=>context
+            new_tagging.save!
+          end          
+        end
 
       end
 
@@ -219,7 +222,7 @@ class AdminController < ApplicationController
       when "invalid"
         collection = {}
         type = "invalid_users"
-        pal_role=Role.find(:first,:conditions=>{:name=>"#{Seek::Config.dm_project_name} Pal"})
+        pal_role=Role.pal_role
         collection[:pal_mismatch] = Person.find(:all).select {|p| p.is_pal? != p.roles.include?(pal_role)}
         collection[:duplicates] = Person.duplicates
         collection[:no_person] = User.without_profile

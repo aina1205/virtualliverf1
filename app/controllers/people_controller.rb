@@ -1,12 +1,13 @@
 class PeopleController < ApplicationController
   
-  before_filter :login_required,:except=>[:select,:userless_project_selected_ajax,:create,:new]  
+  before_filter :find_and_auth, :only => [:show, :edit, :update, :destroy]
   before_filter :current_user_exists,:only=>[:select,:userless_project_selected_ajax,:create,:new]
   before_filter :profile_belongs_to_current_or_is_admin, :only=>[:edit, :update]
   before_filter :profile_is_not_another_admin_except_me, :only=>[:edit,:update]
   before_filter :is_user_admin_auth, :only=>[:destroy]
   before_filter :is_user_admin_or_personless, :only=>[:new]
-  before_filter :auth_params,:only=>[:update,:create]  
+  before_filter :auth_params,:only=>[:update,:create]
+  skip_before_filter :project_membership_required
 
   cache_sweeper :people_sweeper,:only=>[:update,:create,:destroy]
   
@@ -23,26 +24,24 @@ class PeopleController < ApplicationController
   # GET /people
   # GET /people.xml
   def index
-    if (!params[:expertise].nil?)
-      @expertise=params[:expertise]
+    if @expertise=params[:expertise]
       @people=Person.tagged_with(@expertise, :on=>:expertise)      
-    elsif (!params[:tools].nil?)
-      @tools=params[:tools]
+    elsif @tools=params[:tools]
       @people=Person.tagged_with(@tools, :on=>:tools)
     elsif (params[:discipline_id])
-      @discipline=Discipline.find(params[:discipline_id])
-      #FIXME: strips out the disciplines that don't match
-      @people=Person.find(:all,:include=>:disciplines,:conditions=>["disciplines.id=?",@discipline.id])
-      #need to reload the people to get their full discipline list - otherwise only get those matched above. Must be a better solution to this
-      @people=@people.collect{|p| Person.find(p.id)}
+      @people=Person.find(:all,:include=>:disciplines).select{|p| p.discipline_id == params[:discipline_id]}
     elsif (params[:role_id])
       @role=Role.find(params[:role_id])
       @people=Person.find(:all,:include=>[:group_memberships])
       #FIXME: this needs double checking, (a) not sure its right, (b) can be paged when using find.
       @people=@people.select{|p| !(p.group_memberships & @role.group_memberships).empty?}
-    else
-      @people = apply_filters(Person.all)
+    end
+
+    unless @people
+      @people = apply_filters(Person.all).select(&:can_view?)
       @people=Person.paginate_after_fetch(@people, :page=>params[:page])
+    else
+      @people = @people.select(&:can_view?)
     end
 
     respond_to do |format|
@@ -54,8 +53,6 @@ class PeopleController < ApplicationController
   # GET /people/1
   # GET /people/1.xml
   def show                
-    @person = Person.find(params[:id])
-    
     respond_to do |format|
       format.html # show.html.erb
       format.xml
@@ -66,17 +63,14 @@ class PeopleController < ApplicationController
   # GET /people/new.xml
   def new    
     @person = Person.new
-
     respond_to do |format|
-      format.html { render :action=>"new",:layout=>"logged_out" }
+      format.html { render :action=>"new" }
       format.xml  { render :xml => @person }
     end
   end
 
   # GET /people/1/edit
   def edit
-    @person = Person.find(params[:id])
-    
     possible_unsaved_data = "unsaved_#{@person.class.name}_#{@person.id}".to_sym
     if session[possible_unsaved_data]
       # if user was redirected to this 'edit' page from avatar upload page - use session
@@ -123,7 +117,7 @@ class PeopleController < ApplicationController
     @userless_projects.sort!{|a,b|a.name<=>b.name}
     @person = Person.new(params[:openid_details]) #Add some default values gathered from OpenID, if provided.
 
-    render :action=>"select",:layout=>"logged_out"
+    render :action=>"select"
   end
 
   # POST /people
@@ -148,8 +142,8 @@ class PeopleController < ApplicationController
       end
 
       redirect_action="select"
-    end       
-    
+    end
+
     respond_to do |format|
       if @person.save && current_user.save
         if (!current_user.active?)
@@ -160,19 +154,13 @@ class PeopleController < ApplicationController
           logout_user
           format.html {redirect_to :controller=>"users",:action=>"activation_required"}
         else
-          if registration && !current_user.is_admin?
-            logout_user
-            flash[:notice]="Profile successfully created. You can log in when an administrator has assigned you to a project."
-            format.html { redirect_to :controller => "sessions", :action=>"new"}
-          else
-            flash[:notice] = 'Person was successfully created.'
-            format.html { redirect_to(@person) }
-            format.xml  { render :xml => @person, :status => :created, :location => @person }
-          end
+          flash[:notice] = 'Person was successfully created.'
+          format.html { redirect_to(@person) }
+          format.xml  { render :xml => @person, :status => :created, :location => @person }
         end
         
       else        
-        format.html { render :action => redirect_action,:layout=>"logged_out" }
+        format.html { render :action => redirect_action }
         format.xml  { render :xml => @person.errors, :status => :unprocessable_entity }
       end
     end
@@ -181,8 +169,6 @@ class PeopleController < ApplicationController
   # PUT /people/1
   # PUT /people/1.xml
   def update
-    @person = Person.find(params[:id])
-    
     @person.disciplines.clear if params[:discipline_ids].nil?
 
     # extra check required to see if any avatar was actually selected (or it remains to be the default one)
@@ -201,7 +187,6 @@ class PeopleController < ApplicationController
     respond_to do |format|
       if @person.update_attributes(params[:person]) && set_group_membership_role_ids(@person,params)
         @person.save #this seems to be required to get the tags to be set correctly - update_attributes alone doesn't [SYSMO-158]
-         
         flash[:notice] = 'Person was successfully updated.'
         format.html { redirect_to(@person) }
         format.xml  { head :ok }
@@ -230,7 +215,6 @@ class PeopleController < ApplicationController
   # DELETE /people/1
   # DELETE /people/1.xml
   def destroy
-    @person = Person.find(params[:id])
     @person.destroy
 
     respond_to do |format|
@@ -305,7 +289,7 @@ class PeopleController < ApplicationController
   
   def profile_belongs_to_current_or_is_admin
     @person=Person.find(params[:id])
-    unless @person == current_user.person || current_user.is_admin? || current_user.person.is_project_manager?
+    unless @person == current_user.person || User.admin_logged_in? || current_user.person.is_project_manager?
       error("Not the current person", "is invalid (not owner)")
       return false
     end
@@ -320,7 +304,7 @@ class PeopleController < ApplicationController
   end
 
   def is_user_admin_or_personless
-    unless current_user.is_admin? || current_user.person.nil?
+    unless User.admin_logged_in? || current_user.person.nil?
       error("You do not have permission to create new people","Is invalid (not admin)")
       return false
     end
@@ -337,13 +321,12 @@ class PeopleController < ApplicationController
   def auth_params
     # make sure to update people/_form if this changes
     #                   param                 => allowed access?
-    restricted_params={:is_pal                => current_user.is_admin?,
-                       :is_admin              => current_user.is_admin?,
-                       :can_edit_projects     => (current_user.is_admin? or current_user.is_project_manager?),
-                       :can_edit_institutions => (current_user.is_admin? or current_user.is_project_manager?)}
+    restricted_params={:is_pal                => User.admin_logged_in?,
+                       :is_admin              => User.admin_logged_in?,
+                       :can_edit_projects     => (User.admin_logged_in? or current_user.is_project_manager?),
+                       :can_edit_institutions => (User.admin_logged_in? or current_user.is_project_manager?)}
     restricted_params.each do |param, allowed|
       params[:person].delete(param) if params[:person] and not allowed
     end
   end
-
 end

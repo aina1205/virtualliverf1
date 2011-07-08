@@ -24,18 +24,18 @@ class AssayTypesControllerTest < ActionController::TestCase
     assert_not_nil assigns(:assay_types)
   end
   
-  test "should not show manage page for non-admin" do
+  test "should also show manage page for non-admin" do
     login_as(:cant_edit)
     get :manage
-    assert flash[:error]
-    assert_redirected_to root_url
+    assert_response :success
+    assert_not_nil assigns(:assay_types)
   end
 
-  test "should not show manage page for pal" do
+  test "should show manage page for pal" do
     login_as(:pal_user)
     get :manage
-    assert flash[:error]
-    assert_redirected_to root_url
+    assert_response :success
+    assert_not_nil assigns(:assay_types)
   end
   
   test "should show new" do

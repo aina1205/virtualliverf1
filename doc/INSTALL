@@ -30,9 +30,12 @@ as follows:
 
 (if you need more information, see https://help.ubuntu.com/community/Repositories/Ubuntu#Adding+Canonical+Partner+Repositories).
 
+If you needed to add partner repositories, and its a good idea anyway, you should do an apt-get update
+
+  sudo apt-get update
 
 If using Ubuntu or Debian, the following commands should install most the packages you need:
-
+ 
   sudo apt-get install wget mercurial ruby rdoc ri libopenssl-ruby ruby-dev mysql-server libssl-dev build-essential openssh-server 
   sudo apt-get install libmysqlclient16-dev libmagick++-dev libxml++2.6-dev sun-java6-jdk graphviz libsqlite3-dev sqlite3
 
@@ -62,9 +65,9 @@ The following commands should install rubygems for you on a Ubuntu/Debian system
 
 Our source code is stored within the {Sysmo-DB Google Code Repository}[http://code.google.com/p/sysmo-db/], using Mercurial[http://mercurial.selenic.com/] as the version control system. 
 
-For a stable version, you should check out according to a stable tag. Our current tag is v0.10.5, so to retrieve this version you should use:
+For a stable version, you should check out according to a stable tag. Our current tag is v0.11.1, so to retrieve this version you should use:
 
-  hg clone https://sysmo-db.googlecode.com/hg/ -r v0.10.5 seek
+  hg clone https://sysmo-db.googlecode.com/hg/ -r v0.11.1 seek
   
 Bundler[http://gembundler.com/] is used to manage gems, so to install the required gems you first need to install the bundler gem:
 

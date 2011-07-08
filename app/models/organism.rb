@@ -2,7 +2,7 @@ class Organism < ActiveRecord::Base
 
   acts_as_favouritable
 
-  linked_to_bioportal :email=>"stuart.owen@manchester.ac.uk"
+  linked_to_bioportal :apikey=>Seek::Config.bioportal_api_key
   
   has_many :assay_organisms
   has_many :models
@@ -13,7 +13,7 @@ class Organism < ActiveRecord::Base
 
   validates_presence_of :title
   
-  def can_delete?
+  def can_delete? *args
     models.empty? && assays.empty? && projects.empty?
   end
 

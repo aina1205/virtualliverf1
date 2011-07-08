@@ -1,4 +1,5 @@
 require 'test_helper'
+require 'pubmed_query'
 
 class PublicationTest < ActiveSupport::TestCase
   
@@ -27,6 +28,37 @@ class PublicationTest < ActiveSupport::TestCase
     assert assay_asset.valid?
     assert_equal assay_asset.asset, publication
     assert_equal assay_asset.assay, assay
+
+  end
+
+  test "publication date from pubmed" do
+    query = PubmedQuery.new("seek","sowen@cs.man.ac.uk")
+    result = query.fetch(21533085)
+    assert_equal Date.parse("20 April 2011"),result.date_published
+
+    sleep 0.5 #the sleeps are to keep in accordance to the pubmed service requirements
+    result = query.fetch(1)
+    assert_equal Date.parse("1 June 1975"),result.date_published
+
+    sleep 0.5 #the sleeps are to keep in accordance to the pubmed service requirements
+    result = query.fetch(20533085)
+    assert_equal Date.parse("9 June 2010"),result.date_published
+  end
+
+  test "book chapter doi" do
+    query=DoiQuery.new("sowen@cs.man.ac.uk")
+    result = query.fetch("10.1007/978-3-642-16239-8_8")
+    assert_equal 3,result.publication_type
+    assert_equal "Prediction with Confidence Based on a Random Forest Classifier",result.title
+    assert_equal 2,result.authors.size
+    last_names = ["Devetyarov","Nouretdinov"]
+    result.authors.each do |auth|
+      assert last_names.include? auth.last_name
+    end
+    
+    assert_equal "Artificial Intelligence Applications and Innovations",result.journal
+    assert_equal Date.parse("1 Jan 2010"),result.date_published
+    assert_equal "10.1007/978-3-642-16239-8_8",result.doi
 
   end
 

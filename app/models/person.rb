@@ -28,7 +28,7 @@ class Person < ActiveRecord::Base
   has_many :favourite_group_memberships, :dependent => :destroy
   has_many :favourite_groups, :through => :favourite_group_memberships
 
-  has_many :work_groups, :through=>:group_memberships
+  has_many :work_groups, :through=>:group_memberships, :before_add => proc {|person, wg| person.project_subscriptions.build :project => wg.project unless person.project_subscriptions.detect {|ps| ps.project == wg.project}}
   has_many :studies, :foreign_key => :person_responsible_id
   has_many :assays,:foreign_key => :owner_id
 
@@ -42,7 +42,7 @@ class Person < ActiveRecord::Base
   has_many :created_sops, :through => :assets_creators, :source => :asset, :source_type => "Sop"
   has_many :created_publications, :through => :assets_creators, :source => :asset, :source_type => "Publication"
 
-  acts_as_solr(:fields => [ :first_name, :last_name,:expertise,:tools,:locations, :description ]) if Seek::Config.solr_enabled
+  acts_as_solr(:fields => [ :first_name, :last_name,:expertise,:tools,:locations, :roles ],:include=>[:disciplines]) if Seek::Config.solr_enabled
 
   named_scope :without_group, :include=>:group_memberships, :conditions=>"group_memberships.person_id IS NULL"
   named_scope :registered,:include=>:user,:conditions=>"users.person_id != 0"
@@ -50,6 +50,30 @@ class Person < ActiveRecord::Base
   named_scope :admins,:conditions=>{:is_admin=>true}
 
   alias_attribute :webpage,:web_page
+
+  has_many :project_subscriptions
+  accepts_nested_attributes_for :project_subscriptions, :allow_destroy => true
+
+  has_many :subscriptions
+  before_create :set_default_subscriptions
+
+  def set_default_subscriptions
+    projects.each do |proj|
+      set_default_subscription_to proj
+    end
+  end
+
+  def set_default_subscription_to proj
+    project_subscriptions.build :project => proj, :unsubscribed_types => []
+    ProjectSubscription.subscribable_types.each do |type_name|
+      klass = type_name.constantize
+      klass.reflect_on_association(:project) ? items = klass.scoped(:include => :project) : items = klass.scoped({})
+      items.scoped(:include => :subscriptions)
+      items.select{|item| item.project == proj}.each do |item|
+        subscriptions.build :subscribable => item unless subscriptions.detect {|ss| ss.subscribable == item and ss.project == proj}
+      end
+    end
+  end
 
   #FIXME: change userless_people to use this scope - unit tests
   named_scope :not_registered,:include=>:user,:conditions=>"users.person_id IS NULL"
@@ -115,15 +139,15 @@ class Person < ActiveRecord::Base
   end
 
   def institutions
-    res=[]
-    work_groups.collect {|wg| res << wg.institution unless res.include?(wg.institution) }
-    return res
+    work_groups.scoped(:include => :institution).collect {|wg| wg.institution }.uniq
   end
 
   def projects
-    res=[]
-    work_groups.collect {|wg| res << wg.project unless res.include?(wg.project) }
-    return res
+    work_groups.scoped(:include => :project).collect {|wg| wg.project }.uniq
+  end
+
+  def member?
+    !projects.empty?
   end
 
   def locations
@@ -156,8 +180,10 @@ class Person < ActiveRecord::Base
     group_memberships.each do |gm|
       roles = roles | gm.roles
     end
-    return roles
+    roles
   end
+
+
 
   def update_first_letter
     no_last_name=last_name.nil? || last_name.strip.blank?
@@ -178,7 +204,43 @@ class Person < ActiveRecord::Base
   end
 
   def can_be_edited_by?(subject)
-    return((subject.is_admin? || subject.is_project_manager?) && (self.user.nil? || !self.is_admin?))
+    subject == nil ? false : ((subject.is_admin? || subject.is_project_manager?) && (self.user.nil? || !self.is_admin?))
+  end
+
+  def subscriptions_setting  subscriptions_attributes
+       subscriptions_attributes.reject{|s|s["subscribed_resource_types"].blank?}.each do |st|
+          subscription = self.subscriptions.detect{|s|s.project_id==st["project_id"].to_i}
+          if subscription
+            subscription.subscribed_resource_types = st["subscribed_resource_types"]
+            subscription.subscription_type = st["subscription_type"]
+            subscription.subscribed_resource_types.each do |srt|
+               eval(srt).find(:all).select(&:can_edit?).each do |object|
+                 object.current_user_subscribed= true
+                 object.subscription_type= subscription.subscription_type
+               end
+            end
+            subscription.save!
+          end
+       end
+  end
+
+  def can_view? user = User.current_user
+    not user.nil?
+  end
+
+  def can_edit? user = User.current_user
+    new_record? or user && (user.is_admin? || user.is_project_manager? || user == self.user)
+  end
+
+  does_not_require_can_edit :is_admin
+  requires_can_manage :is_admin, :can_edit_projects, :can_edit_institutions
+
+  def can_manage? user = User.current_user
+    user.is_admin?
+  end
+
+  def can_destroy? user = User.current_user
+    can_manage? user
   end
 
   private

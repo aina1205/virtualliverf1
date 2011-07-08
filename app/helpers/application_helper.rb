@@ -2,6 +2,7 @@
 
 module ApplicationHelper  
   include SavageBeast::ApplicationHelper
+  include FancyMultiselectHelper
 
 
   #List of activerecord model classes that are directly creatable by a standard user (e.g. uploading a new DataFile, creating a new Assay, but NOT creating a new Project)
@@ -264,10 +265,11 @@ module ApplicationHelper
     html
   end
 
-  def favourite_group_popup_link_action_new
-    return link_to_remote_redbox("Create new favourite group", 
+  def favourite_group_popup_link_action_new resource_type=nil
+    return link_to_remote_redbox("Create new favourite group",
       { :url => new_favourite_group_url,
-        :failure => "alert('Sorry, an error has occurred.'); RedBox.close();" },
+        :failure => "alert('Sorry, an error has occurred.'); RedBox.close();",
+        :with => "'resource_type=' + '#{resource_type}'" },
       { #:style => options[:style],
         :id => "create_new_f_group_redbox",
         :onclick => "javascript: currentFavouriteGroupSettings = {};" }#,
@@ -276,10 +278,11 @@ module ApplicationHelper
     )
   end
   
-  def favourite_group_popup_link_action_edit
-    return link_to_remote_redbox("Edit selected favourite group", 
+  def favourite_group_popup_link_action_edit resource_type=nil
+    return link_to_remote_redbox("Edit selected favourite group",
       { :url => edit_favourite_group_url,
-        :failure => "alert('Sorry, an error has occurred.'); RedBox.close();" },
+        :failure => "alert('Sorry, an error has occurred.'); RedBox.close();",
+        :with => "'resource_type=' + '#{resource_type}' + '&id=' + selectedFavouriteGroup()" },
       { #:style => options[:style],
         :id => "edit_existing_f_group_redbox",
         :onclick => "javascript: currentFavouriteGroupSettings = {};" } #,
@@ -288,10 +291,11 @@ module ApplicationHelper
     )
   end
   
-  def workgroup_member_review_popup_link
+  def workgroup_member_review_popup_link resource_type=nil
     return link_to_remote_redbox("<b>Review members, set individual<br/>permissions and add afterwards</b>", 
       { :url => review_work_group_url("type", "id", "access_type"),
-        :failure => "alert('Sorry, an error has occurred.'); RedBox.close();" },
+        :failure => "alert('Sorry, an error has occurred.'); RedBox.close();",
+        :with => "'resource_type=' + '#{resource_type}'" },
       { #:style => options[:style],
         :id => "review_work_group_redbox" } #,
       #:alt => "Click to create a new favourite group (opens popup window)",#options[:tooltip_text],
@@ -314,10 +318,15 @@ module ApplicationHelper
   end
   
   #Return whether or not to hide contact details from this user
-  #Current decided by HIDE_DETAILS flag in environment_local.rb
+  #Current decided by Seek::Config.hide_details_enabled in config.rb
   #Defaults to false
   def hide_contact_details?
-    Seek::Config.hide_details_enabled
+    #hide for non-login and non-project-member
+    if !logged_in? or !current_user.person.member?
+      return true
+    else
+      Seek::Config.hide_details_enabled
+    end
   end
 
   # Finn's truncate method. Doesn't split up words, tries to get as close to length as possible
@@ -361,7 +370,7 @@ module ApplicationHelper
   end
 
   def can_manage_announcements?
-    return current_user.is_admin?
+    return admin_logged_in?
   end
 
   def show_or_hide_block visible=true
@@ -414,12 +423,12 @@ module ApplicationHelper
     @policy_type = policy_type
     @sharing_mode = policy.sharing_scope
     @access_mode = policy.access_type
-    @use_custom_sharing = (policy.use_custom_sharing == true || policy.use_custom_sharing == 1)
+    @use_custom_sharing = !policy.permissions.empty?
     @use_whitelist = (policy.use_whitelist == true || policy.use_whitelist == 1)
     @use_blacklist = (policy.use_blacklist == true || policy.use_blacklist == 1)
 
     # ..other
-    @resource_type = object.class.name
+    @resource_type = text_for_resource object
     @favourite_groups = current_user.favourite_groups
     @resource = object
 
@@ -428,7 +437,31 @@ module ApplicationHelper
     @enable_black_white_listing = @resource.nil? || (@resource.respond_to?(:contributor) and !@resource.contributor.nil?)
   end
 
+  def folding_box id, title, options = nil
+    render :partial => 'assets/folding_box', :locals =>
+        {:fold_id => id,
+         :fold_title => title,
+         :contents => options[:contents],
+         :hidden => options[:hidden]}
+  end
+
+  def require_js file
+    #TODO: Needs testing, not sure what the 'lifecycle' for instance variables in a helper is.
+    #Needs to last as long as the page is being rendered and no longer. The intent is to include the js only if it hasn't already been included.
+    @required_js ||= []
+    unless @required_js.include? file
+      @required_js << file
+      javascript_include_tag file
+    end
+  end
   private  
   PAGE_TITLES={"home"=>"Home", "projects"=>"Projects","institutions"=>"Institutions", "people"=>"People", "sessions"=>"Login","users"=>"Signup","search"=>"Search","assays"=>"Assays","sops"=>"SOPs","models"=>"Models","data_files"=>"Data","publications"=>"Publications","investigations"=>"Investigations","studies"=>"Studies"}
-  
 end
+
+class ApplicationFormBuilder< ActionView::Helpers::FormBuilder
+  def fancy_multiselect association, options = {}
+    @template.fancy_multiselect object, association, options
+  end
+end
+
+ActionView::Base.default_form_builder = ApplicationFormBuilder

@@ -4,6 +4,7 @@
 require 'seek/config'
 
 #Features enabled
+Seek::Config.default :public_seek_enabled,false
 Seek::Config.default :sycamore_enabled,false
 Seek::Config.default :events_enabled,false
 Seek::Config.default :jerm_enabled,true
@@ -24,6 +25,7 @@ Seek::Config.default :google_analytics_tracker_id, '000-000'
 Seek::Config.default :piwik_analytics_enabled, false
 Seek::Config.default :piwik_analytics_id_site, 1
 Seek::Config.default :piwik_analytics_url, 'localhost/piwik/'
+Seek::Config.default :bioportal_api_key,''
 
 
 
@@ -43,12 +45,12 @@ Seek::Config.default :copyright_addendum_enabled,false
 Seek::Config.default :copyright_addendum_content,'Additions copyright ...'
 
 # Pagination
-Seek::Config.default :default_pages,{:people => 'latest', :projects => 'latest', :institutions => 'latest', :investigations => 'latest',:studies => 'latest', :assays => 'latest', :data_files => 'latest', :models => 'latest',:sops => 'latest', :publications => 'latest',:events => 'latest'}
+Seek::Config.default :default_pages,{:specimens => 'latest',:samples => 'latest', :people => 'latest', :projects => 'latest', :institutions => 'latest', :investigations => 'latest',:studies => 'latest', :assays => 'latest', :data_files => 'latest', :models => 'latest',:sops => 'latest', :publications => 'latest',:events => 'latest'}
 Seek::Config.default :limit_latest,7
 
 # Others
 Seek::Config.default :type_managers_enabled,true
-Seek::Config.default :type_managers,'admins'
+Seek::Config.default :type_managers,'users'
 Seek::Config.default :tag_threshold,1
 Seek::Config.default :max_visible_tags,20
 Seek::Config.default :pubmed_api_email,nil

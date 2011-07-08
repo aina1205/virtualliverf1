@@ -45,6 +45,10 @@ module Seek
   # Convention for creating a new propagator is to add a method named <setting_name>_propagate
   module Propagators
 
+    def site_base_host_propagate
+      ActionMailer::Base.default_url_options = { :host => self.site_base_host.gsub(/https?:\/\//, '').gsub(/\/$/,'') }
+    end
+
     def smtp_propagate
       smtp_hash = self.smtp
       password =  self.smtp_settings 'password'
@@ -213,7 +217,7 @@ module Seek
     extend CustomAccessors
 
     #Basic settings
-    settings = [:events_enabled, :jerm_enabled, :test_enabled, :email_enabled, :no_reply, :jws_enabled,
+    settings = [:public_seek_enabled, :events_enabled, :bioportal_api_key, :jerm_enabled, :test_enabled, :email_enabled, :no_reply, :jws_enabled,
       :jws_online_root, :hide_details_enabled, :activity_log_enabled,
       :activation_required_enabled, :project_name, :smtp, :default_pages,
       :project_type, :project_link, :header_image_enabled, :header_image,
