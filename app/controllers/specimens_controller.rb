@@ -1,9 +1,9 @@
 class SpecimensController < ApplicationController
   # To change this template use File | Settings | File Templates.
 
-
   before_filter :find_assets, :only => [:index]
   before_filter :find_and_auth, :only => [:show, :update, :edit, :destroy]
+  before_filter :virtualliver_only
 
   include IndexPager
 
@@ -35,7 +35,7 @@ class SpecimensController < ApplicationController
 
 
 
-    sop_ids = params[:specimen_sop_ids].reject(&:blank?)||[]
+    sop_ids = (params[:specimen_sop_ids].nil?? [] : params[:specimen_sop_ids].reject(&:blank?)) ||[]
     @specimen.sop_ids = sop_ids
 
     @specimen.project_id = params[:project_id]
@@ -65,7 +65,7 @@ class SpecimensController < ApplicationController
     @specimen.project_id = params[:project_id]
 
 
-    sop_ids = params[:specimen_sop_ids].reject(&:blank?)||[]
+    sop_ids = (params[:specimen_sop_ids].nil?? [] : params[:specimen_sop_ids].reject(&:blank?))||[]
    # @specimen.sop_ids = sop_ids
 
     @specimen.attributes = params[:specimen]

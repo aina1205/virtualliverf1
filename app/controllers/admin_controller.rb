@@ -70,6 +70,24 @@ class AdminController < ApplicationController
     update_redirect_to (only_integer params[:port], "port"),'features_enabled'
   end
 
+  def update_home_settings
+    Seek::Config.project_news_enabled= string_to_boolean params[:project_news_enabled]
+    Seek::Config.project_news_feed_urls= params[:project_news_feed_urls]
+    Seek::Config.project_news_number_of_entries= params[:project_news_number_of_entries] if only_integer params[:tag_threshold], "number of project news"
+
+    Seek::Config.community_news_enabled= string_to_boolean params[:community_news_enabled]
+    Seek::Config.community_news_feed_urls= params[:community_news_feed_urls]
+    Seek::Config.community_news_number_of_entries= params[:community_news_number_of_entries] if only_integer params[:tag_threshold], "number of community news"
+
+    Seek::Config.home_description = params[:home_description]
+    begin
+      Seek::FeedReader.clear_cache
+    rescue e
+      logger.error "Error whilst attempting to clear feed cache #{e.message}"
+    end
+    update_redirect_to true,'home_settings'
+  end
+
   def rebrand
       respond_to do |format|
       format.html
@@ -119,7 +137,7 @@ class AdminController < ApplicationController
 
   def update_others
     update_flag = true
-    Seek::Config.site_base_host = params[:site_base_host]
+    Seek::Config.site_base_host = params[:site_base_host] unless params[:site_base_host].nil?
     #check valid email
     Seek::Config.pubmed_api_email = params[:pubmed_api_email] if params[:pubmed_api_email] == '' || (check_valid_email params[:pubmed_api_email], "pubmed api email")
     Seek::Config.crossref_api_email = params[:crossref_api_email] if params[:crossref_api_email] == '' || (check_valid_email params[:crossref_api_email], "crossref api email")

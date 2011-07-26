@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20110704082948) do
+ActiveRecord::Schema.define(:version => 20110721091613) do
 
   create_table "activity_logs", :force => true do |t|
     t.string   "action"
@@ -663,10 +663,7 @@ ActiveRecord::Schema.define(:version => 20110704082948) do
   end
 
   create_table "samples_tissue_and_cell_types", :id => false, :force => true do |t|
-    t.integer "sample_id"
     t.integer "tissue_and_cell_type_id"
-  end
-
   create_table "saved_searches", :force => true do |t|
     t.integer  "user_id"
     t.text     "search_query"
@@ -674,6 +671,16 @@ ActiveRecord::Schema.define(:version => 20110704082948) do
     t.datetime "created_at"
     t.datetime "updated_at"
   end
+
+  create_table "sessions", :force => true do |t|
+    t.string   "session_id", :null => false
+    t.text     "data"
+    t.datetime "created_at"
+    t.datetime "updated_at"
+  end
+
+  add_index "sessions", ["session_id"], :name => "index_sessions_on_session_id"
+  add_index "sessions", ["updated_at"], :name => "index_sessions_on_updated_at"
 
   create_table "settings", :force => true do |t|
     t.string   "var",                       :null => false
@@ -830,6 +837,15 @@ ActiveRecord::Schema.define(:version => 20110704082948) do
     t.integer  "policy_id"
     t.integer  "contributor_id"
     t.string   "contributor_type"
+  end
+
+  create_table "subscriptions", :force => true do |t|
+    t.integer  "person_id"
+    t.integer  "subscribable_id"
+    t.string   "subscribable_type"
+    t.string   "subscription_type"
+    t.datetime "created_at"
+    t.datetime "updated_at"
   end
 
   create_table "subscriptions", :force => true do |t|
