@@ -8,7 +8,7 @@
 
     <% if @study.can_edit? -%>
         <li>
-          <%= image_tag_for_key('new', new_assay_path(:study_id=>@study), "Add an assay", nil, 'Add an assay') -%>
+          <%= image_tag_for_key('new', new_assay_path(:study_id=>@study,:create_from_asset=>@study.create_from_asset), "Add an assay", nil, 'Add an assay') -%>
         </li>
     <% end -%>
 
@@ -37,12 +37,7 @@
       </p>
     </div>
 
-    <div class="project">
-      <p>
-        <label>Project:</label>
-        <%= link_to h(@study.project.name),project_path(@study.project)  %>
-      </p>
-    </div>
+    <%= render :partial => 'projects/show_project_relationship', :locals => {:resource => @study}%>
 
     <div>
       <p>
