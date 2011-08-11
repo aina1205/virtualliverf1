@@ -985,6 +985,8 @@ ActiveRecord::Schema.define(:version => 20110804150945) do
     t.datetime "updated_at"
   end
 
+  add_index "tissue_and_cell_types", ["title"], :name => "title", :unique => true
+
   create_table "topics", :force => true do |t|
     t.integer  "forum_id"
     t.integer  "user_id"
