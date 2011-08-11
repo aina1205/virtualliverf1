@@ -1,0 +1,202 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="content-type" content="text/html;charset=UTF-8" />
+        <title>Virtual Liver SEEK Login</title>
+        <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+        <link href="/stylesheets/reset-fonts-grids.css?1281104188" media="screen" rel="stylesheet" type="text/css" />
+        <link href="/stylesheets/base-min.css?1281104188" media="screen" rel="stylesheet" type="text/css" />
+        <link href="/stylesheets/my_exp.css?1296641389" media="screen" rel="stylesheet" type="text/css" />
+        <link href="/stylesheets/gadgets.css?1281104188" media="screen" rel="stylesheet" type="text/css" />
+        <link href="/stylesheets/styles.css?1298896355" media="screen" rel="stylesheet" type="text/css" />
+        <script src="/javascripts/prototype.js?1281104188" type="text/javascript"></script>
+<script src="/javascripts/effects.js?1281104188" type="text/javascript"></script>
+<script src="/javascripts/dragdrop.js?1281104188" type="text/javascript"></script>
+<script src="/javascripts/controls.js?1281104188" type="text/javascript"></script>
+<script src="/javascripts/application.js?1281104188" type="text/javascript"></script>
+        <script src="/javascripts/boxover.js?1281104188" type="text/javascript"></script>
+        <script src="/javascripts/scriptaculous.js?1281104188" type="text/javascript"></script>
+        <script type="text/javascript">
+                  function show_ajax_loader(element) {
+                    $(element).innerHTML='<img alt="Ajax-loader" src="/images/ajax-loader.gif?1281104185" />' ;
+                  }
+                
+        </script>
+    </head>
+    <body>
+        <div id="custom-doc" class="yui-t2">
+            <div id="hd">
+                <div id="header">
+                        <table width="100%">
+      <tr>
+      <td style="text-align:left">
+        <a href="/"><img alt="SEEK" src="/images/seek-logo-beta_smaller.png?1281104188" title="SEEK" /></a>
+      </td>
+      <td style="width:90%;">
+        <p id='header_text_main'  class="box_standout">
+  Find, share and exchange <b>Data</b>, <b>Models</b> and <b>Processes</b>
+  within the <a href="http://www.virtual-liver.de/" onclick="window.open(this.href);return false;">Virtual Liver Network</a>.
+</p>
+      </td>
+      <td style="text-align:right;">
+        <a href="http://www.virtual-liver.de/"><img alt="http://www.virtual-liver.de/" src="/images/vln-logo-small.png?1281706982" title="Virtual Liver F1" /></a>
+      </td>
+    </tr>
+    </table>      
+
+                </div>
+                
+                <div id="topbar">
+                    
+
+
+
+
+
+
+
+                </div>
+            </div>
+            <div id="bd">
+                <div id="yui-main">
+                                        
+                    
+                                        <h1>Log in</h1>
+
+	<br/>
+	<center>
+	  <div style="width: 300px;">
+		  <div class="sysmo_gadget">
+    <b class="xtop"><b class="xb1"></b><b class="xb2"></b><b class="xb3"></b><b class="xb4"></b></b>
+    <div class="header">
+        <p>
+            Log in / Register
+        </p>
+    </div>
+    <div class="contents">
+        <form action="/session" method="post"><div style="margin:0;padding:0;display:inline"><input name="authenticity_token" type="hidden" value="/8KgrUXf54zKAvPMWEc601rOF1Y87UzudEcYGQOWWgo=" /></div>
+        <input id="called_from_controller" name="called_from[controller]" type="hidden" value="sessions" />        <input id="called_from_action" name="called_from[action]" type="hidden" value="new" />        <input id="called_from_id" name="called_from[id]" type="hidden" />        <div class="box1">
+            <div id="password_login">
+                <p class="label">
+                    Login:
+                </p>
+                <p>
+                    <input class="field" id="login" name="login" type="text" />                </p>
+                <p class="label">
+                    Password:
+                </p>
+                <p>
+                    <input class="field" id="password" name="password" type="password" />                </p>
+                <p class="label">
+                    Remember me: <input id="remember_me" name="remember_me" style="width:2em;" type="checkbox" />
+                </p>
+            </div>
+            <div id="openid_login" style="display: none">
+                <p class="label">
+                    <a href="http://openid.net/" target="_blank"><img alt="Openid-16x16" src="/images/openid-16x16.gif?1296641389" />OpenID:</a>
+                </p>
+                <p>
+                    <input class="field" id="openid_identifier" name="openid_identifier" type="text" />                </p>
+            </div>
+            <p>
+                Alternatively...
+                <br/>
+                <a href="#" id="login_toggle_link" onclick="toggleLogin();return false">Log in using <img alt="Openid-16x16" src="/images/openid-16x16.gif?1296641389" />OpenID</a>
+                <br/>
+            </p>
+        </div>
+        <p>
+            <input id="login_button" name="commit" onclick="$('login_button').disabled=true;this.form.submit();return(false);" type="submit" value="Log in" />
+        </p>
+        </form>
+        <p style="margin-top: 0.6em; line-height: 1.3em; font-size: 93%;">
+            <b>Need an account?</b>
+            <br/>
+            <b><a href="http://193.197.73.67/signup">Sign up</a></b>
+        </p>
+        <br/>
+        <p style="margin-top: 0.6em; line-height: 1.3em; font-size: 83%;">
+            <b><a href="http://193.197.73.67/forgot_password">Forgotten password?</a></b>
+        </p>
+    </div>
+    <b class="xbottom"><b class="xb5"></b><b class="xb6"></b><b class="xb7"></b><b class="xb1"></b></b>
+</div>
+<script type="text/javascript">
+    function toggleLogin(){
+        var elem1 = $('password_login');
+        var elem2 = $('openid_login');
+        var link = $('login_toggle_link');
+        if (elem1.style.display == 'none') {
+            link.innerHTML = 'Log in using <img alt="Openid-16x16" src="/images/openid-16x16.gif?1296641389" />OpenID';
+            Effect.BlindUp('openid_login', {
+                duration: 0.2
+            });
+            Effect.BlindDown('password_login', {
+                duration: 0.2
+            });
+        }
+        else {
+            link.innerHTML = "Log in using username/password";
+            Effect.BlindUp('password_login', {
+                duration: 0.2
+            });
+            Effect.BlindDown('openid_login', {
+                duration: 0.2
+            });
+        }
+    }
+</script>
+
+	  </div>
+	</center>
+        
+	<script language="javascript">
+      function focusLogin() {
+        document.getElementById('login').focus();
+      }
+
+      if (window.addEventListener){
+        window.addEventListener('load', focusLogin, false); 
+      } else if (window.attachEvent){
+        window.attachEvent('onload', focusLogin);
+      }
+    </script>
+	   
+
+                </div>
+            </div>
+            <div id="ft">
+                <p class="copyright">
+  Copyright (c) 2008 - 2010
+  <a href="http://www.manchester.ac.uk/" target="_blank">The University of Manchester</a>
+  and
+  <a href="http://www.h-its.org/" target="_blank">HITS gGmbH</a>
+  
+    <p class="copyright">
+      Additions within Virtual Liver Copyright(c) 2011 <ahref="http://www.h-its.org/" target="_blank">HITS gGmbH</a>
+</p>
+  
+</p>
+
+	
+
+
+            </div>
+            <br/>
+            <div style="text-align:center;">
+                <a href="http://www.bbsrc.ac.uk/"><img alt="BBSRC" height="40px" src="/images/logos/bbsrc_logo.gif?1296641389" style="border:gray 1px solid;" title="BBSRC" /></a>                &nbsp;&nbsp;&nbsp;<a href="http://www.bmbf.de/en/"><img alt="BMBF" height="40px" src="/images/logos/bmbf_logo.jpg?1296641389" style="border:gray 1px solid;" title="BMBF" /></a>            </div>
+        </div>
+          <script type="text/javascript">
+      var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+      document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+      </script>
+      <script type="text/javascript">
+      <!--//--><![CDATA[//><!--
+      var pageTracker = _gat._getTracker('000-000');
+      
+      pageTracker._initData();
+      pageTracker._trackPageview();
+      //--><!]]>
+      </script>
+</body>
+</html>
