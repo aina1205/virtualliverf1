@@ -34,6 +34,7 @@ Seek::Config.default :community_news_number_of_entries,10
 Seek::Config.default :home_description, 'Some (configurable) information about the project and what we do goes here.'
 
 Seek::Config.default :presentations_enabled,true
+Seek::Config.default :scales,["organism","liver","liverLobe","liverLobule","intercellular","cell"]
 
 # Branding
 Seek::Config.default :project_name,'SysMO'
@@ -65,3 +66,4 @@ Seek::Config.default :pubmed_api_email,nil
 Seek::Config.default :crossref_api_email,nil
 Seek::Config.default :site_base_host,"http://localhost:3000"
 Seek::Config.default :open_id_authentication_store,:memory
+Seek::Config.default :seek_video_link, "http://www.youtube.com/user/elinawetschHITS?feature=mhee#p/u"

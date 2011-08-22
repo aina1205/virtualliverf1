@@ -48,17 +48,21 @@ module FancyMultiselectHelper
   module SetDefaults
     def fancy_multiselect object, association, options = {}
       options[:object_type_text] = options[:object_class].name.underscore.humanize unless options[:object_type_text]
+      with_new_link = options[:with_new_link] || false
       object_type_text = options[:object_type_text]
 
       #set default values for locals being sent to the partial
       #override default values with options passed in to the method
-      options.reverse_merge! :intro => "The following #{association} are involved in this #{object_type_text}:",
-                             :button_text => "Include in the #{object_type_text}",
+      options.reverse_merge! :intro => "The following #{association} are associated with this #{object_type_text}:",
+                             :button_text => "Associate with the #{object_type_text}",
                              :default_choice_text => "Select #{association} ...",
                              :name => "#{options[:object_class].name.underscore}[#{association.to_s.singularize}_ids]",
                              :possibilities => [],
                              :value_method => :id,
-                             :text_method => :title
+                             :text_method => :title,
+                             :with_new_link => with_new_link,
+                             :object_type_text=> object_type_text,
+                             :association=>association
 
       options[:selected] = object.send(association).map(&options[:value_method]) unless options[:selected]
 
@@ -83,7 +87,7 @@ module FancyMultiselectHelper
     def fancy_multiselect object, association, options = {}
       hidden = options.delete(:hidden)
       object_type_text = options[:object_type_text] || options[:object_class].name.underscore.humanize
-      title = (help_icon("Here you can associate the #{object_type_text} with specific #{association}.") + "#{association.to_s.titleize}")
+      title = (options[:required] ? '<span class="required">*</span>' : '')+ (help_icon("Here you can associate the #{object_type_text} with specific #{association}.") + "#{association.to_s.titleize}")
 
       folding_box "add_#{association}_form", title , :hidden => hidden, :contents => super(object, association, options)
     end
