@@ -12,6 +12,14 @@ class SearchController < ApplicationController
     @results = @results.select{|r| !r.nil?}
 
     @results = select_authorised @results
+
+    @results_scaled = Scale.all.collect {|scale| [scale.title, @results.select {|item| !item.respond_to?(:scale_ids) or item.scale_ids.include? scale.id}]}
+    @results_scaled << ['all', @results]
+    @results_scaled = Hash[*@results_scaled.flatten(1)]
+    logger.info @results_scaled.inspect
+    @results = @results_scaled[params[:scale]]
+    @scale_title = params[:scale]
+
     if @results.empty?
       flash.now[:notice]="No matches found for '<b>#{@search_query}</b>'."
     else

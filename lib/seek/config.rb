@@ -44,7 +44,26 @@ module Seek
   # Propagator methods that are triggered after a setting is changed.
   # Convention for creating a new propagator is to add a method named <setting_name>_propagate
   module Propagators
+    def scales_propagate
+      if ActiveRecord::Base.connection.table_exists? 'scales'
+        existing_scale_titles = Scale.all.map(&:title)
+        new_scale_titles = self.scales - existing_scale_titles
+        old_scale_titles = existing_scale_titles - self.scales
+        old_scales = []
+        old_scale_titles.each do |scale|
+          old_scales <<  Scale.find(:all,:conditions=>["BINARY title =?",scale])
+        end
 
+        Scale.destroy_all(:id=>old_scales.flatten.map(&:id))
+
+        if !new_scale_titles.blank?
+          new_scale_titles.each do |scale|
+            Scale.create!(:title=>scale) if Scale.find(:first,:conditions=>["BINARY title =?",scale]).nil?
+          end
+        end
+      end
+
+    end
     def site_base_host_propagate
       ActionMailer::Base.default_url_options = { :host => self.site_base_host.gsub(/https?:\/\//, '').gsub(/\/$/,'') }
     end
@@ -223,7 +242,7 @@ module Seek
       :application_name,:application_title,:project_long_name,:project_title,:dm_project_name,:dm_project_title,:dm_project_link,:application_title,:header_image_link,:header_image_title,
       :header_image_enabled,:header_image_link,:header_image_title,:google_analytics_enabled,
       :google_analytics_tracker_id,:piwik_analytics_enabled,:piwik_analytics_url, :exception_notification_enabled,:exception_notification_recipients,:open_id_authentication_store, :sycamore_enabled,
-      :project_news_enabled,:project_news_feed_urls,:community_news_enabled,:community_news_feed_urls,:is_virtualliver,:presentations_enabled]
+      :project_news_enabled,:project_news_feed_urls,:community_news_enabled,:community_news_feed_urls,:is_virtualliver,:presentations_enabled,:seek_video_link,:scales]
 
     #Settings that require a conversion to integer
     setting :tag_threshold,:convert=>"to_i"

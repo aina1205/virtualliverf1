@@ -307,6 +307,20 @@ end
     f.association :sop, :factory => :sop
   end
 
+Factory.define(:scalable,:parent=>:data_file){}
+
+#Scale
+Factory.define(:scale) do |f|
+  f.sequence(:title){|n| "Scale #{n}"}
+
+end
+#Scaling
+Factory.define(:scaling) do |f|
+  f.association :person
+  f.association :scalable
+  f.association :scale
+end
+
   Factory.define(:relationship) do |f|
     f.association :subject, :factory => :model
     f.association :object, :factory => :model
@@ -314,3 +328,6 @@ end
   end
 
   Factory.define(:attribution, :parent => :relationship) {}
+
+
+

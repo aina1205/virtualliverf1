@@ -19,7 +19,9 @@
             <%= text_area_tag 'sop[description]', sop_description_value, :style => "width: 100%;", :rows => 10 -%>
         </p>
         <%= render :partial => "projects/project_selector", :locals => { :resource => @sop } -%>
-        
+        <p>
+        <%= fancy_multiselect @sop,:scales, {:possibilities=>sort_scales(Scale.all)} -%>
+       </p>
 		<%= render :partial=>"assets/asset_form_bottom", :locals=> {:resource_type => "Sop",:show_publications=>false} -%>
 		<%= render :partial => "assays/associate_assays", :locals=>{:resource => @sop, :show_relationships => false} -%>
       <p>
