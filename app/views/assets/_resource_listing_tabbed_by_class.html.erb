@@ -18,6 +18,16 @@
        end
    end
 %>
+<% limit ||= nil
+   if limit
+       resource_hash.each_key do |key|
+      if limit && resource_hash[key][:items].size > limit
+        resource_hash[key][:extra_count] = resource_hash[key][:items].size - limit
+        resource_hash[key][:items] = resource_hash[key][:items][0...limit]
+      end
+    end
+   end
+%>
 
 <script type="text/javascript">
   tabber_ids.push("<%= tabs_id -%>");
@@ -67,7 +77,13 @@
           <% unless extra_count < 1 %>
             <div class="list_items_container">
               <div class="hidden_list_item" style="color:#000">
-                <%= link_to "View all "+(extra_count + resources.size).to_s+" items", filter_url(resource_type, item) %>
+                <%= item ||= nil
+                    if item
+                        link_to "View all "+(extra_count + resources.size).to_s+" items", filter_url(resource_type, item)
+                    else
+                        link_to "View all items", eval("#{resource_type.pluralize.underscore}_path")
+                    end
+                        %>
               </div>
               <br style="clear:both"/>
             </div>
