@@ -7,7 +7,7 @@ class ProjectsController < ApplicationController
   before_filter :find_assets, :only=>[:index]
   before_filter :is_user_admin_auth, :except=>[:index, :show, :edit, :update, :request_institutions]
   before_filter :editable_by_user, :only=>[:edit,:update,:admin]
-
+  before_filter :is_user_admin_auth,:only=>[:manage]
   skip_before_filter :project_membership_required
 
   cache_sweeper :projects_sweeper,:only=>[:update,:create,:destroy]
@@ -101,14 +101,13 @@ class ProjectsController < ApplicationController
   # POST /projects.xml
   def create
     @project = Project.new(params[:project])
-
     @project.default_policy.set_attributes_with_sharing params[:sharing], [@project]
 
 
     respond_to do |format|
       if @project.save
         flash[:notice] = 'Project was successfully created.'
-        format.html { redirect_to(@project) }
+         format.html { redirect_to(@project) }
         format.xml  { render :xml => @project, :status => :created, :location => @project }
       else
         format.html { render :action => "new" }
@@ -131,7 +130,6 @@ class ProjectsController < ApplicationController
 
     respond_to do |format|
       if @project.update_attributes(params[:project])
-        
 
         flash[:notice] = 'Project was successfully updated.'
         format.html { redirect_to(@project) }
@@ -143,19 +141,31 @@ class ProjectsController < ApplicationController
     end
   end
 
+  def manage
+    @projects = Project.all
+    respond_to do |format|
+      format.html
+      format.xml{render :xml=>@projects}
+    end
+  end
   # DELETE /projects/1
   # DELETE /projects/1.xml
   def destroy
     @project = Project.find(params[:id])
-    @project.destroy
-
     respond_to do |format|
-      format.html { redirect_to(projects_url) }
-      format.xml  { head :ok }
+      if @project.children.empty?
+        @project.destroy
+        format.html { redirect_to(projects_path) }
+        format.xml { head :ok }
+      else
+        flash.now[:error]="Unable to delete project with children"
+        format.html { redirect_to(@project) }
+        format.xml { render :xml=>@project.errors, :status=>:unprocessable_entity }
+      end
     end
   end
   
-  
+
   # returns a list of institutions for a project in JSON format
   def request_institutions
     # listing institutions for a project is public data, but still
@@ -193,7 +203,4 @@ class ProjectsController < ApplicationController
       return false
     end
   end
-
-
-  
 end

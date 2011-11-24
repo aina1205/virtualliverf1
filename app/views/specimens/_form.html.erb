@@ -12,7 +12,10 @@
       <%= f.label :specimen_number -%><span class="required">*</span><br/>
       <%= f.text_field :donor_number, :style => "width: 350px;" -%>
     </p>
-
+    <p>
+      <%= f.label :description -%><br/>
+      <%= f.text_area :comments, :style => "width: 85%;", :rows => 5 -%>
+    </p>
 
 
     <p>
@@ -37,19 +40,11 @@
     <p>
         <%= f.fancy_multiselect :scales, {:possibilities=>sort_scales(Scale.all)} -%>
     </p>
-    <%= render :partial=>"assets/asset_form_bottom", :locals=> {
-            :resource_type => "Specimen",
-            :attribution_enable => false,
-            :show_publications => false,
-            :existing_creators=>@specimen.creators,
-            :other_creators=>@specimen.other_creators,
-    }  if @specimen.can_manage?-%>
 
+    <%= render :partial=>"assets/asset_form_bottom", :locals=> { :f => f, :attribution_enable => false, :show_publications => false } if @specimen.can_manage?-%>
+    
     <%= fancy_multiselect @specimen, :sops, :name => 'specimen_sop_ids',:association_class=>Sop, :selected => (params[:specimen_sop_ids] || []).map(&:to_i) | @specimen.sop_masters.map(&:sop_id)%>
-    <p>
-      <%= f.label :description -%><br/>
-      <%= f.text_area :comments, :style => "width: 85%;", :rows => 5 -%>
-    </p>
+
 
 
   </div>

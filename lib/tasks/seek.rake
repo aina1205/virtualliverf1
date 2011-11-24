@@ -2,11 +2,12 @@ require 'rubygems'
 require 'rake'
 require 'time'
 require 'active_record/fixtures'
+require 'lib/seek/factor_studied.rb'
 
 require 'csv'
 
 namespace :seek do
-  
+  include Seek::FactorStudied
   desc 'an alternative to the doc:seek task'
   task(:docs=>["doc:seek"]) do
     
@@ -25,30 +26,54 @@ namespace :seek do
   end
   
   desc "adds the default tags" 
-  task(:default_tags=>:environment) do      
+  task(:tags=>:environment) do
     File.open('config/default_data/expertise.list').each do |item|
       unless item.blank?
         item=item.chomp
-        if Person.expertise_counts.find{|tag| tag.name==item}.nil?
-          tag=Tag.new(:name=>item)
-          taggable=Tagging.new(:tag=>tag, :context=>"expertise", :taggable_type=>"Person")
-          taggable.save!
-        end
+        create_tag item, "expertise"
       end
     end
     
     File.open('config/default_data/tools.list').each do |item|
       unless item.blank?
         item=item.chomp
-        if Person.tool_counts.find{|tag| tag.name==item}.nil?
-          tag=Tag.new(:name=>item)
-          taggable=Tagging.new(:tag=>tag, :context=>"tools", :taggable_type=>"Person")
-          taggable.save!
+        create_tag item, "tool"
+      end
+    end
+  end    
+
+  #update the old compounds and their annotations, add the new compounds and their annotations if they dont exist
+  desc "adds or updates the compounds, synonyms and mappings using the Sabio-RK webservices"
+  task(:compounds=>:environment) do
+    compound_list = []
+    File.open('config/default_data/compound.list').each do |compound|
+      unless compound.blank?
+        compound_list.push(compound.chomp) if !compound_list.include?(compound.chomp)
+      end
+    end
+  
+    count_new = 0
+    count_update=0
+    compound_list.each do |compound|
+      compound_object = update_substance compound
+      if compound_object.new_record?
+        if compound_object.save
+          count_new += 1
+        else
+          puts "the compound #{try_block{compound_object.name}} couldn't be created: #{compound_object.errors.full_messages}"
+        end
+      else
+        if compound_object.save
+          count_update += 1
+        else
+          puts "the compound #{try_block{compound_object.name}} couldn't be updated: #{compound_object.errors.full_messages}"
         end
       end
-    end        
+    end
+    puts "#{count_new.to_s} compounds and synonyms were created"
+    puts "#{count_update.to_s} compounds and synonyms were updated"
   end
-  
+
   desc 're-extracts bioportal information about all organisms, overriding the cached details'
   task(:refresh_organism_concepts=>:environment) do
     Organism.all.each do |o|
@@ -58,15 +83,15 @@ namespace :seek do
 
   desc 'seeds the database with the controlled vocabularies'
   task(:seed=>:environment) do
-    tasks=["seed_sqlite","load_help_docs"]
+    tasks=["seed_testing","compounds","load_help_docs"]
     tasks.each do |task|
       Rake::Task["seek:#{task}"].execute
     end
   end
 
-  desc 'seeds the database without the loading of help document, which is currently not working for SQLITE3 (SYSMO-678)'
-  task(:seed_sqlite=>:environment) do
-    tasks=["refresh_controlled_vocabs", "default_tags", "graft_new_assay_types"]
+  desc 'seeds the database without the loading of help document, which is currently not working for SQLITE3 (SYSMO-678). Also skips adding compounds from sabio-rk'
+  task(:seed_testing=>:environment) do
+    tasks=["refresh_controlled_vocabs", "tags", "graft_new_assay_types"]
     tasks.each do |task|
       Rake::Task["seek:#{task}"].execute
     end
@@ -103,7 +128,7 @@ namespace :seek do
   
   desc 'refreshes, or creates, the standard initial controlled vocublaries'
   task(:refresh_controlled_vocabs=>:environment) do
-    other_tasks=["culture_growth_types", "model_types", "model_formats", "assay_types", "disciplines", "organisms", "technology_types", "recommended_model_environments", "measured_items", "units", "roles", "assay_classes", "relationship_types", "strains","compounds"]
+    other_tasks=["culture_growth_types", "model_types", "model_formats", "assay_types", "disciplines", "organisms", "technology_types", "recommended_model_environments", "measured_items", "units", "roles", "assay_classes", "relationship_types", "strains"]
     other_tasks.each do |task|
       Rake::Task["seek:#{task}"].execute
     end
@@ -125,7 +150,6 @@ namespace :seek do
     private_data=data.select { |d| !d.can_view? User.first }
     puts "#{private_data.size} private Data files being removed"
     private_data.each{|d| d.destroy }
-    
   end
   
   task(:strains=>:environment) do
@@ -221,12 +245,6 @@ namespace :seek do
     Fixtures.create_fixtures(File.join(RAILS_ROOT, "config/default_data" ), "assay_classes")
   end
   
-   task(:compounds=>:environment) do
-    revert_fixtures_identify
-    Compound.delete_all
-    Fixtures.create_fixtures(File.join(RAILS_ROOT, "config/default_data"), "compounds")
-  end
-
   #Update the sharing_scope in the policies table, because of removing CUSTOM_PERMISSIONS_ONLY and ALL_REGISTERED_USERS scopes
   task(:update_sharing_scope=>:environment) do
     # sharing_scope
@@ -234,6 +252,21 @@ namespace :seek do
     custom_permissions_only_scope = 1
     all_sysmo_users_scope = 2
     all_registered_users_scope = 3
+    every_one = 4
+
+    #First, need to update the sharing_scope of publication_policy from 3 to 4
+    policies = Policy.find(:all, :conditions => ["name = ? AND sharing_scope = ?", 'publication_policy', all_registered_users_scope])
+    unless policies.nil?
+      count = 0
+      policies.each do |policy|
+        policy.sharing_scope = every_one
+        policy.save
+        count += 1
+      end
+      puts "Done - #{count} publication_policies changed scope from ALL_REGISTERED_USERS to EVERYONE."
+    else
+      puts "Couldn't find any policies with ALL_REGISTERED_USERS scope and publication_policy"
+    end
   
     #update  ALL_REGISTERED_USERS to ALL_SYSMO_USERS
     policies = Policy.find(:all, :conditions => ["sharing_scope = ?", all_registered_users_scope])
@@ -450,6 +483,89 @@ namespace :seek do
     end
   end
 
+
+  desc "projects hierarchies only for existing Virtual Liver SEEK projects "
+  task :projects_hierarchies =>:environment do
+    root = Project.find_by_name "Virtual Liver"
+
+    irreg_projects = [
+      ctu = Project.find_by_name("CTUs"),
+      show_case = Project.find_by_name("Show cases"),
+      project_mt = Project.find_by_name("Project Management"),
+      interleukin = Project.find_by_name("Interleukin-6 signalling"),
+      pals = Project.find_by_name("PALs Team"),
+      hepatosys = Project.find_by_name("HepatoSys")
+    ].compact
+
+    #root as parent
+    reg_projects = Project.find(:all, :conditions=>["name REGEXP?", "^[A-Z][:]"])
+    (irreg_projects + reg_projects).each do |proj|
+      proj.parent = root
+      puts "#{proj.name} |has parent|  #{root.name}"
+      proj.save!
+    end
+
+    #ctus
+    sub_ctus = Project.find(:all, :conditions=>["name REGEXP?", "^CTU[^s]"])
+    sub_ctus.each do |proj|
+      if ctu
+        proj.parent = ctu
+        puts "#{proj.name} |has parent|  #{ctu.name}"
+        proj.save!
+      end
+    end
+    #show cases
+    ["HGF and Regeneration", "LPS and Inflammation", "Steatosis"].each do |name|
+      proj = Project.find_by_name name
+      if proj and show_case
+        proj.parent = show_case
+        puts "#{proj.name} |has parent| #{show_case.name}"
+        proj.save!
+      end
+    end
+    #project management
+    ["Admin:Administration",
+    "PtJ",
+    "Virtual Liver Management Team",
+    "Virtual Liver Scientific Advisory Board"].each do |name|
+      proj = Project.find_by_name name
+      if proj and project_mt
+        proj.parent = project_mt
+        puts "#{proj.name} |has parent| #{project_mt.name}"
+        proj.save!
+      end
+    end
+    #set parents for children of A-G,e.g.A,A1,A1.1
+    reg_projects.each do |proj|
+      init_char = proj.name[0].chr
+      Project.find(:all, :conditions=>["name REGEXP?", "^#{init_char}[0-9][^.]"]).each do |sub_proj|
+        if sub_proj
+          sub_proj.parent = proj
+          puts "#{sub_proj.name} |has parent| #{proj.name}"
+          sub_proj.save!
+          num = sub_proj.name[1].chr # get the second char of the name
+          Project.find(:all, :conditions=>["name REGEXP?", "^#{init_char}[#{num}][.]"]).each { |sub_sub_proj|
+            if sub_sub_proj
+              sub_sub_proj.parent = sub_proj
+              puts "#{sub_sub_proj.name} |has parent| #{sub_proj.name}"
+              sub_sub_proj.save!
+            end
+          }
+        end
+      end
+    end
+
+    ######update work groups##############
+    puts "update work groups,it may take some time..."
+    disable_authorization_checks do
+      Project.all.each do |proj|
+        proj.institutions.each do |i|
+          proj.parent.institutions << i unless proj.parent.institutions.include?(i)
+        end
+      end
+    end
+
+  end
   
   private
   
@@ -465,15 +581,20 @@ namespace :seek do
     end
   end
 
-  def create_tag name, context, taggable_type
-    tag=ActsAsTaggableOn::Tag.find :first, :conditions=>{:name=>name}
-    if tag.nil?
-      tag=ActsAsTaggableOn::Tag.new(:name=>name)
-      tag.save!
+  def create_tag text, attribute
+    text_value = TextValue.find_or_create_by_text(text)
+    unless text_value.has_attribute_name?(attribute)
+      seed = AnnotationValueSeed.create :value=>text_value, :attribute=>AnnotationAttribute.find_or_create_by_name(attribute)
     end
-    if tag.taggings.detect { |tagging| tagging.context==context && tagging.taggable_type==taggable_type }.nil?
-      tagging=ActsAsTaggableOn::Tagging.new(:tag_id=>tag.id, :context=>context, :taggable_type=>taggable_type)
-      tagging.save!
+  end
+
+  desc "Subscribes users to the items they would normally be subscribed to by default"
+  #Run this after the subscriptions, and all subscribable classes have had their tables created by migrations
+  #You can also run it any time you want to force everyone to subscribe to something they would be subscribed to by default
+  task :create_default_subscriptions => :environment do
+    People.each do |p|
+      p.set_default_subscriptions
+      disable_authorization_checks {p.save(false)}
     end
   end
 
@@ -504,4 +625,13 @@ namespace :seek do
     end
   end
 
+  def set_projects_parent array,parent
+      array.each do |proj|
+        unless proj.nil?
+           proj.parent = parent
+           proj.save!
+        end
+
+      end
+  end
 end

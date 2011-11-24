@@ -43,8 +43,9 @@ class ModelTest < ActiveSupport::TestCase
     asset=Model.new :projects=>[projects(:sysmo_project)]
     assert !asset.valid?
 
+    #VL only: allow no projects
     asset=Model.new :title=>"fred"
-    assert !asset.valid?
+    assert asset.valid?
   end
 
   test "is asset?" do
@@ -75,10 +76,10 @@ class ModelTest < ActiveSupport::TestCase
   test "cache_remote_content" do
     WebMock.allow_net_connect!
 
-    model = Factory :model,
-        :content_blob => ContentBlob.new(:url=>"http://www.sysmo-db.org/images/sysmo-db-logo-grad2.png"),
-        :original_filename => "sysmo-logo.png"
-
+    model = Factory.build :model
+    model.content_blobs.build(:data=>nil,:url=>"http://www.sysmo-db.org/images/sysmo-db-logo-grad2.png",
+    :original_filename=>"sysmo-logo.png",:content_type=>"text/png")
+    model.save!
     assert !model.content_blob.file_exists?
 
     model.cache_remote_content_blob

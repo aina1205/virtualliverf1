@@ -2,7 +2,7 @@ class AssaysController < ApplicationController
 
   include DotGenerator
   include IndexPager
-  include Seek::TaggingCommon
+  include Seek::AnnotationCommon
 
 
   before_filter :find_assets, :only=>[:index]
@@ -97,7 +97,7 @@ class AssaysController < ApplicationController
     end
 
 
-    update_tags @assay
+    update_annotations @assay
 
     @assay.owner=current_user.person
 
@@ -119,13 +119,6 @@ class AssaysController < ApplicationController
           @assay.relate(s) if s.can_view?
         end
 
-#    organisms.each do |text|
-#      o_id, strain, culture_growth_type_text,t_id,t_title=text.split(",")
-#      culture_growth=CultureGrowthType.find_by_title(culture_growth_type_text)
-#      @assay.associate_organism(o_id, strain, culture_growth,t_id,t_title)
-#    end
-
-
         # update related publications
         Relationship.create_or_update_attributions(@assay, params[:related_publication_ids].collect { |i| ["Publication", i.split(",").first] }, Relationship::RELATED_TO_PUBLICATION) unless params[:related_publication_ids].nil?
 
@@ -143,9 +136,8 @@ class AssaysController < ApplicationController
         respond_to do |format|
         format.html { render :action => "new" }
         format.xml { render :xml => @assay.errors, :status => :unprocessable_entity }
-        end
-     end
-
+      end
+    end
   end
 
   def update
@@ -154,6 +146,7 @@ class AssaysController < ApplicationController
     #DOES resolve differences for assets now
     organisms             = params[:assay_organism_ids]||[]
 
+    organisms             = params[:assay_organism_ids] || []
     sop_ids               = params[:assay_sop_ids] || []
     data_file_ids         = params[:data_file_ids] || []
     model_ids             = params[:assay_model_ids] || []
@@ -171,7 +164,7 @@ class AssaysController < ApplicationController
           @assay.associate_organism(o_id, strain, culture_growth,t_id,t_title)
     end
 
-    update_tags @assay
+    update_annotations @assay
 
     assay_assets_to_keep = [] #Store all the asset associations that we are keeping in this
     @assay.attributes = params[:assay]

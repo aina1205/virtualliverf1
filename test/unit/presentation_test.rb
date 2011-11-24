@@ -9,8 +9,10 @@ class PresentationTest < ActiveSupport::TestCase
    assert !presentation.valid?
 
    presentation.reload
+
+   # VL only:allow no projects
    presentation.projects.clear
-   assert !presentation.valid?
+   assert presentation.valid?
  end
 
   test "default_policy_is_private" do
@@ -38,10 +40,17 @@ class PresentationTest < ActiveSupport::TestCase
     assert_equal 1,old_attrs["version"]
     assert_equal 2, presentation.version
 
-    old_other_attrs = old_attrs.select{|k,v|k!="version"}
-    new_other_attrs = presentation.attributes.select{|k,v|k!="version"}
+    old_attrs.delete("version")
+    new_attrs = presentation.attributes
+    new_attrs.delete("version")
 
-    assert_equal old_other_attrs,new_other_attrs
+    old_attrs.delete("updated_at")
+    new_attrs.delete("updated_at")
+
+    old_attrs.delete("created_at")
+    new_attrs.delete("created_at")
+
+    assert_equal old_attrs,new_attrs
   end
 
   test "event association" do
@@ -53,6 +62,11 @@ class PresentationTest < ActiveSupport::TestCase
          presentation.events << Factory(:event)
     end
 
+  end
+
+  test "has uuid" do
+    presentation = Factory :presentation
+    assert_not_nil presentation.uuid
   end
 
 
