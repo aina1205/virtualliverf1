@@ -9,19 +9,20 @@ module ImagesHelper
       :style => "vertical-align:middle;")
   end
   
-  def image_tag_for_key(key, url=nil, alt=nil, url_options={}, label=key.humanize, remote=false)
+  def image_tag_for_key(key, url=nil, alt=nil, url_options={}, label=key.humanize, remote=false, size=nil)
 
     if (label == 'Destroy')
       label = 'Delete';
     end
     
     return nil unless (filename = icon_filename_for_key(key.downcase))
-    
+
     image_options = alt ? { :alt => alt } : { :alt => key.humanize }
+    image_options[:size] = "#{size}x#{size}" unless size.blank?
     img_tag = image_tag(filename, image_options)
-    
+
     inner = img_tag;
-    inner = "#{img_tag} #{label}" unless label == nil
+    inner = "#{img_tag} #{label}" unless label.blank?
     
     if (url)
       if (remote==:function)
@@ -250,17 +251,35 @@ module ImagesHelper
       when "specimen_avatar"
         "misc_icons/green_virus-64x64.png"
       when "sample_avatar"
-        "misc_icons/jws_builder32x32.png"
+        "misc_icons/sampleBGXblue.png"
       when "specimen", "specimens"
         "misc_icons/green_virus-64x64.png"
       when "publish"
        "crystal_project/22x22/actions/up.png"
+      when "spreadsheet"
+      "famfamfam_silk/table.png"
+      when "spreadsheet_annotation"
+      "famfamfam_silk/tag_blue.png"
+      when "spreadsheet_annotation_edit"
+      "famfamfam_silk/tag_blue_edit.png"
+      when "spreadsheet_annotation_add"
+      "famfamfam_silk/tag_blue_add.png"
+      when "spreadsheet_annotation_destroy"
+      "famfamfam_silk/tag_blue_delete.png"
+      when "spreadsheet_export"
+      "famfamfam_silk/table_go.png"
       when 'unsubscribe'
         "famfamfam_silk/email_delete.png"
       when 'subscribe'
         "famfamfam_silk/email_add.png"
       when 'presentation_avatar','presentation','presentations'
-        "file_icons/ppt.png"
+        "1315482798_presentation-slides.png"
+      when 'endnote'
+        "famfamfam_silk/script_go.png"
+      when 'expand_plus'
+        "toggle_expand_64x64.png"
+      when 'collapse_minus'
+        "toggle_collapse_64x64.png"
     else
       return nil
     end
@@ -387,7 +406,14 @@ module ImagesHelper
   def collapse_image(margin_left="0.3em")
     image_tag icon_filename_for_key("collapse"), :style => "margin-left: #{margin_left}; vertical-align: middle;", :alt => 'Collapse', :title=>tooltip_title_attrib("Collapse the details")
   end
-  
+  def expand_plus_image(size="18x18")
+    image_tag icon_filename_for_key("expand_plus"),:size=>size,:alt => 'Expand', :title=>tooltip_title_attrib("Expand for more details")
+  end
+
+  def collapse_minus_image(size="18x18")
+    image_tag icon_filename_for_key("collapse_minus"),:size=>size,:alt => 'Collapse', :title=>tooltip_title_attrib("Collapse the details")
+  end
+
   def image key,options={}
     image_tag(icon_filename_for_key(key),options)
   end

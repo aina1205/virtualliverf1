@@ -3,18 +3,18 @@
 
 require 'seek/config'
 
-#Features enabled
+#Main settings
 Seek::Config.default :public_seek_enabled,false
 Seek::Config.default :sycamore_enabled,true
 Seek::Config.default :events_enabled,true
 Seek::Config.default :jerm_enabled,true
-Seek::Config.default :test_enabled, false  #FIXME: whats this used for??
 Seek::Config.default :email_enabled,false
 Seek::Config.default :smtp, {:address => '', :port => '25', :domain => '', :authentication => :plain, :user_name => '', :password => ''}
 Seek::Config.default :noreply_sender, 'seek1@virtual-liver.de'
 Seek::Config.default :solr_enabled,false
 Seek::Config.default :jws_enabled, true
 Seek::Config.default :jws_online_root,"http://jjj.mib.ac.uk"
+Seek::Config.default :sabiork_ws_base_url, "http://sabiork.h-its.org/sabioRestWebServices/"
 Seek::Config.default :exception_notification_enabled,false
 Seek::Config.default :exception_notification_recipients,""
 Seek::Config.default :hide_details_enabled,false
@@ -67,3 +67,6 @@ Seek::Config.default :crossref_api_email,nil
 Seek::Config.default :site_base_host,"http://localhost:3000"
 Seek::Config.default :open_id_authentication_store,:memory
 Seek::Config.default :seek_video_link, "http://www.youtube.com/user/elinawetschHITS?feature=mhee#p/u"
+Seek::Config.default :max_attachments_num,100
+
+Seek::Config.default :admin_impersonation_enabled, true

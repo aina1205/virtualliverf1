@@ -42,7 +42,7 @@ class ScalesController < ApplicationController
 
 
     render :update do |page|
-      page.replace_html "scaled_items_id", :partial=>"assets/resource_listing_tabbed_by_class", :locals =>{:resource_hash=>resource_hash, :narrow_view => true, :authorization_already_done => true, :limit => 20}
+      page.replace_html "#{@scale.title}_results", :partial=>"assets/resource_listing_tabbed_by_class", :locals =>{:resource_hash=>resource_hash, :narrow_view => true, :authorization_already_done => true, :limit => 20, :tabs_id => "#{@scale.title}_resource_listing_tabbed_by_class"}
       page.replace_html "js_for_tabber", :partial => "assets/force_loading_tabber"
     end
 
@@ -52,7 +52,7 @@ class ScalesController < ApplicationController
   private
 
    def everything
-    user_creatable_classes.inject([]) do |items, klass|
+    Seek::Util.user_creatable_types.inject([]) do |items, klass|
       items + klass.all
     end
   end

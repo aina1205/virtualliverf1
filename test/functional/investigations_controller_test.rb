@@ -81,9 +81,25 @@ class InvestigationsControllerTest < ActionController::TestCase
 
   test "should create" do
     login_as(Factory :user)
-    put :create, :investigation=> Factory.attributes_for(:investigation, :projects => [User.current_user.person.projects.first])
+    assert_difference("Investigation.count") do
+      put :create, :investigation=> Factory.attributes_for(:investigation, :projects => [User.current_user.person.projects.first])
+    end
     assert assigns(:investigation)
     assert !assigns(:investigation).new_record?
+  end
+
+  test "should fall back to form when no title validation fails" do
+    login_as(Factory :user)
+
+    assert_no_difference("Investigation.count") do
+      put :create, :investigation=> {:projects => [User.current_user.person.projects.first]}
+    end
+    assert_template :new
+    
+    assert assigns(:investigation)
+    assert !assigns(:investigation).valid?
+    assert !assigns(:investigation).errors.empty?
+
   end
 
   test "no edit button in show for unauthorized user" do
