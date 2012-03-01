@@ -31,14 +31,14 @@ class SopTest < ActiveSupport::TestCase
   end
 
   test "validation" do
-    asset=Sop.new :title=>"fred",:projects=>[projects(:sysmo_project)]
+    asset=Sop.new :title=>"fred",:projects=>[projects(:sysmo_project)], :policy => Factory(:private_policy)
     assert asset.valid?
 
-    asset=Sop.new :projects=>[projects(:sysmo_project)]
+    asset=Sop.new :projects=>[projects(:sysmo_project)], :policy => Factory(:private_policy)
     assert !asset.valid?
 
     #VL only:allow no projects
-    asset=Sop.new :title=>"fred"
+    asset=Sop.new :title=>"fred", :policy => Factory(:private_policy)
     assert asset.valid?
   end
 
@@ -66,16 +66,16 @@ class SopTest < ActiveSupport::TestCase
     assert sop_versions(:my_first_sop_v1).use_mime_type_for_avatar?
   end
   
-  def test_defaults_to_private_policy
+  def test_defaults_to_blank_policy
     sop=Sop.new Factory.attributes_for(:sop).tap{|h|h[:policy] = nil}
-    sop.save!
-    sop.reload
-    assert_not_nil sop.policy
-    assert_equal Policy::PRIVATE, sop.policy.sharing_scope
-    assert_equal Policy::NO_ACCESS, sop.policy.access_type
+    sop.save
+    assert !sop.valid?
+    assert !sop.policy.valid?
+    assert_blank sop.policy.sharing_scope
+    assert_blank sop.policy.access_type
     assert_equal false,sop.policy.use_whitelist
     assert_equal false,sop.policy.use_blacklist
-    assert sop.policy.permissions.empty?
+    assert_blank sop.policy.permissions
   end
 
   def test_version_created_for_new_sop
@@ -175,16 +175,16 @@ class SopTest < ActiveSupport::TestCase
   end
 
   test "is restorable after destroy" do
-    sop = sops(:my_first_sop)
+    sop = Factory :sop, :policy => Factory(:all_sysmo_viewable_policy), :title => 'is it restorable?'
     User.current_user = sop.contributor
     assert_difference("Sop.count",-1) do
       sop.destroy
     end
-    assert_nil Sop.find_by_id(sop.id)
+    assert_nil Sop.find_by_title 'is it restorable?'
     assert_difference("Sop.count",1) do
       disable_authorization_checks {Sop.restore_trash!(sop.id)}
     end
-    assert_not_nil Sop.find_by_id(sop.id)
+    assert_not_nil Sop.find_by_title 'is it restorable?'
   end
 
   test 'failing to delete due to can_delete does not create trash' do

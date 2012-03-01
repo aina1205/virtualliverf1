@@ -9,11 +9,19 @@ class Policy < ActiveRecord::Base
            :order => "created_at ASC",
            :autosave => true,
            :after_add => proc {|policy, perm| perm.policy = policy}
-  
-  validates_presence_of :sharing_scope, :access_type
 
-  validates_numericality_of :sharing_scope, :access_type
-  
+  #basically the same as validates_numericality_of :sharing_scope, :access_type
+  #but with a more generic error message because our users don't know what
+  #sharing_scope and access_type are.
+  validates_each(:sharing_scope, :access_type) do |record, attr, value|
+    raw_value = record.send("#{attr}_before_type_cast") || value
+    begin
+      Kernel.Float(raw_value)
+    rescue ArgumentError, TypeError
+      record.errors.add_to_base "Sharing policy is invalid" unless value.is_a? Integer
+    end
+  end
+
   alias_attribute :title, :name
 
   before_save :update_timestamp_if_permissions_change
@@ -159,7 +167,7 @@ class Policy < ActiveRecord::Base
 
   #The default policy to use when creating authorized items if no other policy is specified
   def self.default
-    registered_users_accessible_policy
+    Policy.new(:name => "default accessible", :use_whitelist => false, :use_blacklist => false)
   end
    
   # translates access type codes into human-readable form
