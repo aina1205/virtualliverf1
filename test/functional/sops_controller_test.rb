@@ -42,7 +42,7 @@ class SopsControllerTest < ActionController::TestCase
 
   end
 
-  test 'creators show in list item' do
+  test 'creators do not show in list item' do
     p1=Factory :person
     p2=Factory :person
     sop=Factory(:sop,:title=>"ZZZZZ",:creators=>[p2],:contributor=>p1.user,:policy=>Factory(:public_policy, :access_type=>Policy::VISIBLE))
@@ -59,9 +59,7 @@ class SopsControllerTest < ActionController::TestCase
       assert_select "a[href=?]",person_path(p2) do
         assert_select "img"
       end
-      assert_select "a[href=?]",person_path(p1) do
-        assert_select "img"
-      end
+      assert_select ["a[href=?]", person_path(p1)], 0
     end
   end
 
@@ -176,6 +174,26 @@ class SopsControllerTest < ActionController::TestCase
     assert new_assay.related_asset_ids('Sop').include?(s.id)
   end
 
+  test "associate sample" do
+     # assign to a new sop
+     sop_with_samples = valid_sop
+     sop_with_samples[:sample_ids] = [Factory(:sample,:title=>"newTestSample",:contributor=> User.current_user).id]
+
+     assert_difference("Sop.count") do
+       post :create,:sop => sop_with_samples
+       puts assigns(:sop).errors.full_messages
+       puts assigns(:sop).valid?
+     end
+
+    s = assigns(:sop)
+    assert_equal "newTestSample",s.samples.first.title
+
+    #edit associations of samples to an existing sop
+    put :update,:id=> s.id, :sop => {:sample_ids=> [Factory(:sample,:title=>"editTestSample",:contributor=> User.current_user).id]}
+    s = assigns(:sop)
+    assert_equal "editTestSample", s.samples.first.title
+  end
+
   test "should create sop" do
     login_as(:owner_of_my_first_sop) #can edit assay_can_edit_by_my_first_sop_owner
     assay=assays(:assay_can_edit_by_my_first_sop_owner1)
@@ -196,27 +214,17 @@ class SopsControllerTest < ActionController::TestCase
     assert assay.related_asset_ids('Sop').include? assigns(:sop).id
   end
 
-  def test_missing_sharing_should_default_to_private
-    assert_difference('Sop.count') do
-      assert_difference('ContentBlob.count') do
+  def test_missing_sharing_should_not_default
+    assert_no_difference('Sop.count') do
+      assert_no_difference('ContentBlob.count') do
         post :create, :sop => valid_sop
       end
     end
-    assert_redirected_to sop_path(assigns(:sop))
-    assert_equal users(:quentin), assigns(:sop).contributor
-    assert assigns(:sop)
-
-    sop            =assigns(:sop)
-    private_policy = policies(:private_policy_for_asset_of_my_first_sop)
-    assert_equal private_policy.sharing_scope, sop.policy.sharing_scope
-    assert_equal private_policy.access_type, sop.policy.access_type
-    assert_equal private_policy.use_whitelist, sop.policy.use_whitelist
-    assert_equal private_policy.use_blacklist, sop.policy.use_blacklist
-    assert sop.policy.permissions.empty?
-
-    #check it doesn't create an error when retreiving the index
-    get :index
-    assert_response :success
+    s = assigns(:sop)
+    assert !s.valid?
+    assert !s.policy.valid?
+    assert_blank s.policy.sharing_scope
+    assert_blank s.policy.access_type
   end
 
   test "should create sop with url" do
