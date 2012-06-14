@@ -8,16 +8,15 @@ fixtures :all
   include SharingFormTestHelper
 
   def setup
-    Seek::Config.is_virtualliver = true
     login_as :owner_of_fully_public_policy
     @object = Factory(:specimen, :contributor => User.current_user,
-            :donor_number => "test1",
+            :title => "test1",
             :policy => policies(:policy_for_viewable_data_file))
   end
 
   test "index xml validates with schema" do
     Factory(:specimen, :contributor => User.current_user,
-            :donor_number => "test2",
+            :title => "test2",
             :policy => policies(:policy_for_viewable_data_file))
     Factory :specimen, :policy => policies(:editing_for_all_sysmo_users_policy)
     get :index, :format =>"xml"
@@ -30,7 +29,7 @@ fixtures :all
 
   test "show xml validates with schema" do
     s =Factory(:specimen, :contributor => User.current_user,
-               :donor_number => "test2",
+               :title => "test2",
                :policy => policies(:policy_for_viewable_data_file))
     get :show, :id => s, :format =>"xml"
     assert_response :success
@@ -51,21 +50,22 @@ fixtures :all
   end
   test "should create" do
     assert_difference("Specimen.count") do
-      post :create, :specimen => {:donor_number => "running mouse NO.1",
+      post :create, :specimen => {:title => "running mouse NO.1",
+                                  :organism_id=>Factory(:organism).id,
                                   :lab_internal_number =>"Do232",
                                   :contributor => Factory(:user),
                                   :institution => Factory(:institution),
-                                  :organism => Factory(:organism),
+                                  :strain => Factory(:strain),
                                   :project_ids => [Factory(:project).id]}, :sharing=>valid_sharing
 
     end
     s = assigns(:specimen)
     assert_redirected_to specimen_path(s)
-    assert_equal "running mouse NO.1", s.donor_number
+    assert_equal "running mouse NO.1", s.title
   end
   test "should get show" do
     get :show, :id => Factory(:specimen,
-                              :donor_number=>"running mouse NO2",
+                              :title=>"running mouse NO2",
                               :policy =>policies(:editing_for_all_sysmo_users_policy))
     assert_response :success
     assert_not_nil assigns(:specimen)
@@ -77,15 +77,15 @@ fixtures :all
     assert_not_nil assigns(:specimen)
   end
   test "should update" do
-    specimen = Factory(:specimen, :donor_number=>"Running mouse NO3", :policy =>policies(:editing_for_all_sysmo_users_policy))
+    specimen = Factory(:specimen, :title=>"Running mouse NO3", :policy =>policies(:editing_for_all_sysmo_users_policy))
     creator1= Factory(:person,:last_name =>"test1")
     creator2 = Factory(:person,:last_name =>"test2")
-    assert_not_equal "test", specimen.donor_number
-    put :update, :id=>specimen.id, :specimen =>{:donor_number =>"test",:project_ids => [Factory(:project).id]},
+    assert_not_equal "test", specimen.title
+    put :update, :id=>specimen.id, :specimen =>{:title =>"test",:project_ids => [Factory(:project).id]},
         :creators => [[creator1.name,creator1.id],[creator2.name,creator2.id]].to_json
     s = assigns(:specimen)
     assert_redirected_to specimen_path(s)
-    assert_equal "test", s.donor_number
+    assert_equal "test", s.title
   end
 
   test "should destroy" do
@@ -110,7 +110,7 @@ fixtures :all
     login_as Factory(:user,:person => Factory(:brand_new_person))
     s = Factory :specimen, :policy => Factory(:private_policy)
 
-    put :update, :id=> s.id, :specimen =>{:donor_number =>"test"}
+    put :update, :id=> s.id, :specimen =>{:title =>"test"}
     assert_redirected_to specimen_path(s)
     assert flash[:error]
   end
@@ -150,14 +150,53 @@ fixtures :all
     assert_redirected_to specimens_path
   end
 
-  test "should create specimen with strings for confluency, passage, viability, and purity" do
+  test "should create specimen with strings for confluency passage viability and purity" do
     attrs = [:confluency, :passage, :viability, :purity]
     specimen= Factory.attributes_for :specimen, :confluency => "Test", :passage => "Test", :viability => "Test", :purity => "Test"
-    post :create, :specimen => specimen
-    assert_response :success
+
+    specimen[:strain_id]=Factory(:strain).id
+    specimen[:institution_id]=Factory(:institution).id
+    post :create, :specimen => specimen, :sharing => valid_sharing
     assert specimen = assigns(:specimen)
+
+    assert_redirected_to specimen
+
     attrs.each do |attr|
       assert_equal "Test", specimen.send(attr)
     end
   end
+
+test "should update genotypes and phenotypes" do
+         specimen = Factory(:specimen)
+         genotype1 = Factory(:genotype, :specimen => specimen)
+         genotype2 = Factory(:genotype, :specimen => specimen)
+
+         phenotype1 = Factory(:phenotype, :specimen => specimen)
+         phenotype2 = Factory(:phenotype, :specimen => specimen)
+
+         new_gene_title = 'new gene'
+         new_modification_title = 'new modification'
+         new_phenotype_description = "new phenotype"
+         login_as(specimen.contributor)
+         #[genotype1,genotype2] =>[genotype2,new genotype]
+         put :update,:id=>specimen.id,
+                                    :specimen => {
+                                    :genotypes_attributes => {'0' => {:gene_attributes => {:title => genotype2.gene.title, :id => genotype2.gene.id }, :id=>genotype2.id, :modification_attributes => {:title => genotype2.modification.title,:id=>genotype2.modification.id }},
+                                                              "2"=>{:gene_attributes => {:title => new_gene_title},:modification_attributes => {:title => new_modification_title }},
+                                                              "1"=>{:id => genotype1.id, :_destroy => 1}},
+                                    :phenotypes_attributes => { '0'=>{:description=>phenotype2.description,:id=>phenotype2.id},'2343243'=>{:id=>phenotype1.id,:_destroy=>1},"1"=>{:description=>new_phenotype_description} }
+                                    }
+         assert_redirected_to specimen_path(specimen)
+
+         updated_specimen = Specimen.find_by_id specimen.id
+         new_gene = Gene.find_by_title(new_gene_title)
+         new_modification = Modification.find_by_title(new_modification_title)
+         new_genotype = Genotype.find(:all, :conditions => ["gene_id=? and modification_id=?", new_gene.id, new_modification.id]).first
+         new_phenotype = Phenotype.find_all_by_description(new_phenotype_description).sort_by(&:created_at).last
+         updated_genotypes = [genotype2, new_genotype].sort_by(&:id)
+         assert_equal updated_genotypes, updated_specimen.genotypes.sort_by(&:id)
+
+         updated_phenotypes = [phenotype2, new_phenotype].sort_by(&:id)
+         assert_equal updated_phenotypes, updated_specimen.phenotypes.sort_by(&:id)
+   end
 end

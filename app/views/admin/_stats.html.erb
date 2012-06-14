@@ -1,5 +1,5 @@
 <%= select_tag :stats_query,
-  options_for_select([["Select query ...",0],
+  options_for_select([["Select query ...","none"],
                       ["Content Statistics","contents"],
 					  ["Activity Statistics","activity"],
 					  ["Search Statistics","search"],
@@ -7,7 +7,8 @@
                       ["Administrators","admins"],
                       ["Invalid Users/Profiles", "invalid"],
                       ["Users Requiring Activation", "not_activated"],
-                      ["Non-project Members", "projectless"]
+                      ["Non-project Members", "projectless"],
+                      ["Job queue","job_queue"]
                      ],:length=>10),
     {:style=>"",
      :onchange=>remote_function(:url=>{:action=>"get_stats",:controller=>"admin",:element=>"stats_list"},

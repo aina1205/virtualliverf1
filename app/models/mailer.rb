@@ -1,13 +1,14 @@
 class Mailer < ActionMailer::Base
 
   def feedback user,topic,details,send_anonymously,base_host
+    send_anonymously = true unless user.try(:person)
     subject "#{Seek::Config.application_name} Feedback provided - #{topic}"
     recipients admin_emails
     from Seek::Config.noreply_sender
     reply_to user.person.email_with_name unless  send_anonymously
     sent_on Time.now
 
-    body :topic=>topic,:details=>details,:anon=>send_anonymously,:host=>base_host,:person=>user.person
+    body :topic=>topic,:details=>details,:anon=>send_anonymously,:host=>base_host,:person=>user.try(:person)
   end
 
   def file_uploaded uploader,receiver,file,base_host
@@ -79,13 +80,23 @@ class Mailer < ActionMailer::Base
   end
 
   def contact_admin_new_user_no_profile(details,user,base_host)
-    
+
     subject    "#{Seek::Config.application_name} member signed up"
     recipients (admin_emails + Person.all.select(&:is_project_manager?).map(&:email_with_name))
     from       Seek::Config.noreply_sender
     reply_to   user.person.email_with_name
     sent_on    Time.now
-    
+
+    body       :details=>details, :person=>user.person, :user=>user, :host=>base_host
+  end
+
+  def contact_project_manager_new_user_no_profile(project_manager,details,user,base_host)
+    subject    "#{Seek::Config.application_name} member signed up, please assign this person to the projects which you are project manager"
+    recipients project_manager_email(project_manager)
+    from       Seek::Config.noreply_sender
+    reply_to   user.person.email_with_name
+    sent_on    Time.now
+
     body       :details=>details, :person=>user.person, :user=>user, :host=>base_host
   end
 
@@ -117,6 +128,15 @@ class Mailer < ActionMailer::Base
       admins.map { |p| p.email_with_name }
     rescue
       @@logger.error("Error determining admin email addresses")
+      ["sowen@cs.man.ac.uk"]
+    end
+  end
+
+  def project_manager_email project_manager
+    begin
+      project_manager.email_with_name
+    rescue
+      @@logger.error("Error determining project manager #{project_manager.name} email addresses")
       ["sowen@cs.man.ac.uk"]
     end
   end

@@ -3,7 +3,7 @@ module AssetsHelper
   def request_request_label resource
     icon_filename=icon_filename_for_key("message")
     resource_type=text_for_resource(resource)
-    '<span class="icon">' + image_tag(icon_filename,:alt=>"Request",:title=>"Request") + " Request #{resource_type}</span>";
+    image_tag(icon_filename,:alt=>"Request",:title=>"Request") + " Request #{resource_type}"
   end
 
   #returns all the classes for models that return true for is_asset?
@@ -153,16 +153,26 @@ module AssetsHelper
     eval("#{resource_type.underscore.pluralize}_path" + filter_text)
   end
 
-  #provides a list of assets, according to the class, that are authorized to 'show'
-  def authorised_assets asset_class, action="view"
-    assets=asset_class.find(:all,:include=>[:policy,{:policy=>:permissions}])
-    Authorization.authorize_collection(action, assets, current_user)
+  #provides a list of assets, according to the class, that are authorized acording the 'action' which defaults to view
+  #if projects is provided, only authorizes the assets for that project
+  def authorised_assets asset_class,projects=nil, action="view"
+    asset_class.all_authorized_for action, current_user, projects
   end
 
   def asset_buttons asset,version=nil,delete_confirm_message=nil
      human_name = text_for_resource asset
      delete_confirm_message ||= "This deletes the #{human_name} and all metadata. Are you sure?"
+
      render :partial=>"assets/asset_buttons",:locals=>{:asset=>asset,:version=>version,:human_name=>human_name,:delete_confirm_message=>delete_confirm_message}
+  end
+
+  def asset_version_links asset_versions
+    asset_version_links = []
+    asset_versions.select(&:can_view?).each do |asset_version|
+      asset_name = asset_version.class.name.split('::').first.underscore
+      asset_version_links << link_to(asset_version.title, eval("#{asset_name}_path(#{asset_version.send("#{asset_name}_id")})") + "?version=#{asset_version.version}", {:target => '_blank'})
+    end
+    asset_version_links
   end
 
 end

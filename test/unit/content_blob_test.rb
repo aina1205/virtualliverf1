@@ -5,9 +5,14 @@ class ContentBlobTest < ActiveSupport::TestCase
   fixtures :content_blobs
   
   def test_md5sum_on_demand
-    blob=content_blobs(:picture_blob)
+    blob=Factory :rightfield_content_blob
     assert_not_nil blob.md5sum    
-    assert_equal "2288e57a82162f5fd7fa7050ebadbcba",blob.md5sum
+    assert_equal "01788bca93265d80e8127ca0039bb69b",blob.md5sum
+  end
+
+  def test_cache_key
+    blob=Factory :rightfield_content_blob
+    assert_equal "content_blobs/#{blob.id}-01788bca93265d80e8127ca0039bb69b",blob.cache_key
   end
   
   def test_uuid_doesnt_change
@@ -183,6 +188,16 @@ class ContentBlobTest < ActiveSupport::TestCase
     assert_nil blob.data_io_object
     blob.save!
     assert_nil blob.data_io_object
+  end
+
+  def test_filesize
+    cb = Factory :content_blob, :data=>"z"
+    assert_equal 1, cb.filesize
+    File.delete(cb.filepath)
+    assert_nil cb.filesize
+    cb = Factory :rightfield_content_blob
+    assert_not_nil cb.filesize
+    assert_equal 9216,cb.filesize
   end
   
   def test_exception_when_both_data_and_io_object

@@ -3,8 +3,10 @@ require 'test_helper'
 class UtilTest < ActiveSupport::TestCase
 
   test "creatable types" do
-    as_virtualliver do
-      assert_equal [DataFile,Model,Presentation,Publication,Sop,Assay,Investigation,Study,Event,Sample,Specimen],Seek::Util.user_creatable_types
-    end
+    assert_equal [DataFile,Model,Presentation,Publication,Sop,Assay,Investigation,Study,Event,Sample,Specimen],Seek::Util.user_creatable_types
+  end
+
+  test "authorized types" do
+    assert_equal [Assay, DataFile, Event, Investigation, Model, Presentation, Publication, Sample, Sop, Specimen, Strain, Study],Seek::Util.authorized_types
   end
 end

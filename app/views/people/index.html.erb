@@ -10,8 +10,8 @@
   <h2><%= "People with the discipline '#{h(@discipline.title)}'" %></h2>
 <%  end -%>
 
-<% if @role -%>
-  <h2><%= "People with the role '#{h(@role.name)}'" %></h2>
+<% if @project_role -%>
+  <h2><%= "People with the role '#{h(@project_role.name)}'" %></h2>
 <% end -%>
 
 
@@ -21,9 +21,11 @@
 <% end %>
 
 <div class="list_items_container">
-  <%= render :partial => "layouts/resource_list_item", :collection=>@people %>
+  <%= render :partial => "assets/resource_list_item", :collection=>@people %>
 </div>
 
 <% if @people.respond_to?(:page) && @people.page == "latest" && Person.find(:all).length > Seek::Config.limit_latest%>
     <%= render :partial => "layouts/paginate_see_all"%>
 <% end %>
+
+

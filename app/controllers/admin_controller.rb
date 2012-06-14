@@ -18,10 +18,10 @@ class AdminController < ApplicationController
 
   def update_admins
     admin_ids = params[:admins] || []
-    current_admins = Person.all.select{|p| p.is_admin?}
+    current_admins = Person.admins
     admins = admin_ids.collect{|id| Person.find(id)}
-    current_admins.each{|ca| ca.is_admin=false}
-    admins.each{|a| a.is_admin=true}
+    current_admins.each{|ca| ca.is_admin = false}
+    admins.each{|a| a.is_admin = true}
     (admins | current_admins).each do |admin|
       class << admin
         def record_timestamps
@@ -38,7 +38,7 @@ class AdminController < ApplicationController
   end
 
   def update_features_enabled
-    Seek::Config.public_seek_enabled= string_to_boolean params[:public_seek_enabled]
+    Seek::Config.public_seek_enabled= string_to_boolean(params[:public_seek_enabled] || true)
     Seek::Config.events_enabled= string_to_boolean params[:events_enabled]
     Seek::Config.jerm_enabled= string_to_boolean params[:jerm_enabled]
     Seek::Config.email_enabled= string_to_boolean params[:email_enabled]
@@ -151,6 +151,14 @@ class AdminController < ApplicationController
     update_redirect_to update_flag,'others'
   end
 
+  def update_biosamples_renaming
+    update_flag = true
+    Seek::Config.sample_parent_term = params[:sample_parent_term] unless params[:sample_parent_term].blank?
+    Seek::Config.specimen_creators = params[:specimen_creators] unless params[:specimen_creators].blank?
+    Seek::Config.specimen_culture_starting_date = params[:specimen_culture_starting_date] unless params[:specimen_culture_starting_date].blank?
+    Seek::Config.sample_age = params[:sample_age] unless params[:sample_age].blank?
+    update_redirect_to update_flag,'biosamples_renaming'
+  end
   def finalize_config_changes
     flash[:notice] = RESTART_MSG
     #expires all fragment caching
@@ -195,8 +203,7 @@ class AdminController < ApplicationController
 
       @tag.destroy if @tag.annotations.blank?
 
-      #FIXME: don't like this, but is a temp solution for handling lack of observer callback when removing a tag
-      expire_fragment("sidebar_tag_cloud")
+      expire_annotation_fragments
 
       redirect_to :action=>:tags
     else
@@ -222,8 +229,7 @@ class AdminController < ApplicationController
       flash.now[:error]="Must be a post"
     end
 
-    #FIXME: don't like this, but is a temp solution for handling lack of observer callback when removing a tag
-    expire_fragment("sidebar_tag_cloud")
+    expire_annotation_fragments
 
     redirect_to :action=>:tags
   end
@@ -244,8 +250,8 @@ class AdminController < ApplicationController
       when "invalid"
         collection = {}
         type = "invalid_users"
-        pal_role=Role.pal_role
-        collection[:pal_mismatch] = Person.find(:all).select {|p| p.is_pal? != p.roles.include?(pal_role)}
+        pal_role=ProjectRole.pal_role
+        collection[:pal_mismatch] = Person.find(:all).select {|p| p.is_pal? != p.project_roles.include?(pal_role)}
         collection[:duplicates] = Person.duplicates
         collection[:no_person] = User.without_profile
       when "not_activated"
@@ -262,7 +268,10 @@ class AdminController < ApplicationController
         type = "activity_stats"
       when "search"
         type = "search_stats"
-      else
+      when "job_queue"
+        type = "job_queue"
+      when "none"
+        type = "none"
     end
     respond_to do |format|
       case type
@@ -276,6 +285,10 @@ class AdminController < ApplicationController
           format.html { render :partial => "admin/activity_stats", :locals => {:stats => Seek::ActivityStats.new} }
         when "search_stats"
           format.html { render :partial => "admin/search_stats", :locals => {:stats => Seek::SearchStats.new} }
+        when "job_queue"
+          format.html { render :partial => "admin/job_queue" }
+        when "none"
+          format.html { render :text=>"" }
       end
     end
   end

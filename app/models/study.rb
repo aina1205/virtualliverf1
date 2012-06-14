@@ -23,16 +23,26 @@ class Study < ActiveRecord::Base
 
   validates_presence_of :investigation
 
-  validates_uniqueness_of :title
+  searchable do
+    text :description,:title
+  end if Seek::Config.solr_enabled
 
-  acts_as_solr(:fields=>[:description,:title]) if Seek::Config.solr_enabled
+  #FIXME: see comment in Assay about reversing these
+  ["data_file","sop","model"].each do |type|
+    eval <<-END_EVAL
+      def #{type}_masters
+        assays.collect{|a| a.send(:#{type}_masters)}.flatten.uniq
+      end
 
-  def data_files
-    assays.collect{|a| a.data_files}.flatten.uniq
-  end
-  
-  def sops
-    assays.collect{|a| a.sops}.flatten.uniq
+      def #{type}s
+        assays.collect{|a| a.send(:#{type}s)}.flatten.uniq
+      end
+
+      #related items hash will use data_file_masters instead of data_files, etc. (sops, models)
+      def related_#{type.pluralize}
+        #{type}_masters
+      end
+    END_EVAL
   end
 
   def can_delete? *args

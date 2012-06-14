@@ -2,7 +2,12 @@ require 'tempfile'
 
 module ISAHelper
   
-  NO_DELETE_EXPLANTIONS={Assay=>"You cannot delete an assay that has items associated with it.",Study=>"You cannot delete a Study that has Assays associated with it.",Investigation=>"You cannot delete an Investigation that has Studies associated with it."}
+  NO_DELETE_EXPLANTIONS={Assay=>"You cannot delete an assay that has items associated with it.",
+                         Study=>"You cannot delete a Study that has Assays associated with it.",
+                         Investigation=>"You cannot delete an Investigation that has Studies associated with it." ,
+                         Specimen=>"You cannot delete a #{Seek::Config.sample_parent_term} that has Samples associated with it.",
+                         Sample=>"You cannot delete a Sample that has Assays associated with it."
+  }
   
   include DotGenerator
   
@@ -25,7 +30,10 @@ module ISAHelper
   def embedded_isa_svg root_item,deep=true,current_item=nil
     begin
       current_item||=root_item
-      "<div id='isa_svg'><script type=\'image/svg+xml'>#{to_svg(root_item,deep,current_item)}</script></div>"
+      html = '<script src="/javascripts/svg/svg.js" data-path="/javascripts/svg/"></script>'
+      html << "\n"
+      html << "<div id='isa_svg'><script type=\'image/svg+xml'>#{to_svg(root_item,deep,current_item)}</script></div>"
+      html
     rescue Exception=>e
       "<div id='isa_svg' class='none_text'>Currently unable to display the graph for this item</div>"
     end

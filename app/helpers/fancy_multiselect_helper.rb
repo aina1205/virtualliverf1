@@ -45,17 +45,42 @@ module FancyMultiselectHelper
     end
   end
 
+  module OtherProjectsCheckbox
+    def fancy_multiselect object, association, options = {}
+      if options[:project_possibilities]
+        type = object.class.name.underscore
+        check_box_and_alternative_list = <<-HTML
+          <br/>
+          #{check_box_tag "include_other_project_#{association}", nil, false, {:onchange => "swapSelectListContents('possible_#{type}_#{association.to_s.singularize}_ids','alternative_#{association.to_s.singularize}_ids');", :style => "margin-top:0.5em;"}} Associate #{association.to_s.humanize} from other projects?
+          #{select_tag "alternative_#{association.to_s.singularize}_ids", options_for_select([["Select #{association.to_s.singularize.humanize} ...", 0]]|options[:project_possibilities].collect { |o| [truncate(h(o.title), :length => 120), o.id] }), {:style => 'display:none;'}}
+        HTML
+
+        options[:association_step_content] = '' unless options[:association_step_content]
+        options[:association_step_content] = options[:association_step_content] + check_box_and_alternative_list
+        swap_project_possibilities_into_dropdown_js = <<-JS
+          <script type="text/javascript">
+              swapSelectListContents('possible_#{type}_#{association.to_s.singularize}_ids','alternative_#{association.to_s.singularize}_ids');
+          </script>
+        JS
+        super + swap_project_possibilities_into_dropdown_js
+      else
+        super
+      end
+    end
+  end
+
   module SetDefaults
     def fancy_multiselect object, association, options = {}
       options[:object_type_text] = options[:object_class].name.underscore.humanize unless options[:object_type_text]
       with_new_link = options[:with_new_link] || false
       object_type_text = options[:object_type_text]
+      object_type_text = Seek::Config.sample_parent_term.capitalize if object_type_text == 'Specimen'
 
       #set default values for locals being sent to the partial
       #override default values with options passed in to the method
-      options.reverse_merge! :intro => "The following #{association} are associated with this #{object_type_text}:",
-                             :button_text => "Associate with the #{object_type_text}",
-                             :default_choice_text => "Select #{association} ...",
+      options.reverse_merge! :intro => "The following #{association.to_s.capitalize} are associated with this #{object_type_text}:",
+                             :button_text => "Associate with this #{object_type_text}",
+                             :default_choice_text => "Select #{association.to_s.singularize.capitalize} ...",
                              :name => "#{options[:object_class].name.underscore}[#{association.to_s.singularize}_ids]",
                              :possibilities => [],
                              :value_method => :id,
@@ -76,6 +101,7 @@ module FancyMultiselectHelper
       if reflection = options[:object_class].reflect_on_association(association)
         required_access = reflection.options[:required_access] || :can_view?
         association_class = options.delete(:association_class) || reflection.klass
+        options[:project_possibilities] = authorised_assets(association_class, current_user.person.projects) if options[:other_projects_checkbox]
         options[:possibilities] = association_class.all.select(&required_access.to_sym) unless options[:possibilities]
       end
 
@@ -87,6 +113,7 @@ module FancyMultiselectHelper
     def fancy_multiselect object, association, options = {}
       hidden = options.delete(:hidden)
       object_type_text = options[:object_type_text] || options[:object_class].name.underscore.humanize
+      object_type_text = Seek::Config.sample_parent_term.capitalize if object_type_text == 'Specimen'
       title = (help_icon("Here you can associate the #{object_type_text} with specific #{association}.") + " #{association.to_s.titleize}") + (options[:required] ? ' <span class="required">*</span>'.html_safe : '')
 
       folding_box "add_#{association}_form", title , :hidden => hidden, :contents => super(object, association, options)
@@ -104,6 +131,7 @@ module FancyMultiselectHelper
       end
     end
   end
+
 
   module StringOrObject
     def fancy_multiselect string_or_object, association, options = {}
@@ -123,6 +151,7 @@ module FancyMultiselectHelper
   include Base
   include AjaxPreview
   include HideButtonWhenDefaultIsSelected
+  include OtherProjectsCheckbox
   include SetDefaults
   include SetDefaultsWithReflection
   include FoldingBox

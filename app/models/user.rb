@@ -49,6 +49,12 @@ class User < ActiveRecord::Base
   
   acts_as_uniquely_identifiable
 
+  after_create :queue_update_auth_table
+
+  def queue_update_auth_table
+    AuthLookupUpdateJob.add_items_to_queue self
+  end
+
   cattr_accessor :current_user
 
   # related_#{type} are resources that user created
@@ -59,6 +65,9 @@ class User < ActiveRecord::Base
     end
   end
 
+  def user
+    self
+  end
 
   def can_manage_types?
     unless Seek::Config.type_managers_enabled
@@ -87,6 +96,10 @@ class User < ActiveRecord::Base
 
   def self.admin_logged_in?
     self.logged_in_and_registered? && self.current_user.person.is_admin?
+  end
+
+  def self.project_manager_logged_in?
+    self.logged_in_and_registered? && self.current_user.person.is_project_manager?
   end
 
   #a person can be logged in but not fully registered during

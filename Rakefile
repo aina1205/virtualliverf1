@@ -9,3 +9,5 @@ require 'rake/testtask'
 require 'rake/rdoctask'
 
 require 'tasks/rails'
+require 'sunspot/rails/tasks'
+begin; require 'parallel_tests/tasks'; rescue LoadError; end

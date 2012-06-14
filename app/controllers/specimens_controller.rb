@@ -3,7 +3,6 @@ class SpecimensController < ApplicationController
 
   before_filter :find_assets, :only => [:index]
   before_filter :find_and_auth, :only => [:show, :update, :edit, :destroy]
-  before_filter :virtualliver_only
 
   include IndexPager
 
@@ -31,17 +30,20 @@ class SpecimensController < ApplicationController
   end
 
   def create
+    organism_id = params[:specimen].delete(:organism_id)
     @specimen = Specimen.new(params[:specimen])
-    sop_ids = (params[:specimen_sop_ids].nil?? [] : params[:specimen_sop_ids].reject(&:blank?)) ||[]
+    sop_ids = (params[:specimen_sop_ids].nil? ? [] : params[:specimen_sop_ids].reject(&:blank?))||[]
+    @specimen.build_sop_masters sop_ids
     @specimen.policy.set_attributes_with_sharing params[:sharing], @specimen.projects
+
+    if @specimen.strain.nil? && !params[:organism].blank?
+      @specimen.strain = Strain.default_strain_for_organism(params[:organism])
+    end
+
     #Add creators
     AssetsCreator.add_or_update_creator_list(@specimen, params[:creators])
     respond_to do |format|
       if @specimen.save
-        sop_ids.each do |sop_id|
-          sop= Sop.find sop_id
-          SopSpecimen.create!(:sop_id => sop_id,:sop_version=> sop.version,:specimen_id=>@specimen.id)
-        end
         flash[:notice] = 'Specimen was successfully created.'
         format.html { redirect_to(@specimen) }
         format.xml  { head :ok }
@@ -52,33 +54,44 @@ class SpecimensController < ApplicationController
     end
   end
 
+  def edit
+    @specimen.from_biosamples = params[:from_biosamples]
+    respond_to do |format|
+      format.html # new.html.erb
+      format.xml
+    end
+  end
+
   def update
     sop_ids = (params[:specimen_sop_ids].nil?? [] : params[:specimen_sop_ids].reject(&:blank?))||[]
+    @specimen.build_sop_masters sop_ids
 
     @specimen.attributes = params[:specimen]
-
     @specimen.policy.set_attributes_with_sharing params[:sharing], @specimen.projects
+
+    if @specimen.strain.nil? && !params[:organism].blank?
+        @specimen.strain = Strain.default_strain_for_organism(params[:organism])
+    end
 
     #update creators
     AssetsCreator.add_or_update_creator_list(@specimen, params[:creators])
-     respond_to do |format|
-      if @specimen.save
-          sop_ids.each do |sop_id|
-            sop= Sop.find sop_id
-            existing = @specimen.sop_masters.select{|ss|ss.sop == sop}
-            if existing.blank?
-               SopSpecimen.create!(:sop_id => sop_id,:sop_version=> sop.version,:specimen_id=>@specimen.id)
-            end
 
-          end
-
+    if @specimen.save
+      if @specimen.from_biosamples=='true'
+        #reload to get updated nested attributes,e.g. genotypes/phenotypes
+        @specimen.reload
+        render :partial => "biosamples/back_to_biosamples", :locals => {:action => 'update', :object => @specimen}
+      else
+        respond_to do |format|
           flash[:notice] = 'Specimen was successfully updated.'
           format.html { redirect_to(@specimen) }
-          format.xml  { head :ok }
-      else
+          format.xml { head :ok }
+        end
+      end
+    else
+      respond_to do |format|
         format.html { render :action => "edit" }
       end
-
     end
   end
 
@@ -94,10 +107,4 @@ class SpecimensController < ApplicationController
       end
     end
   end
-
-
-
-
-
 end
-

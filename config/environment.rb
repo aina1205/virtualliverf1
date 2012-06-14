@@ -31,13 +31,13 @@ Rails::Initializer.run do |config|
   # Add additional load paths for your own custom dirs
   # config.load_paths += %W( #{RAILS_ROOT}/extras )
 
-  config.load_paths += %W(#{Rails.root}/app/sweepers #{Rails.root}/app/reindexers)
+  config.load_paths += %W(#{Rails.root}/app/sweepers #{Rails.root}/app/reindexers #{Rails.root}/app/jobs)
 
   # Force all environments to use the same logger level
   # (by default production uses :info, the others :debug)
   # config.log_level = :info
   begin
-    RAILS_DEFAULT_LOGGER = Logger.new("#{RAILS_ROOT}/log/#{RAILS_ENV}.log")
+    RAILS_DEFAULT_LOGGER = Logger.new("#{Rails.root}/log/#{RAILS_ENV}.log")
   rescue StandardError
     RAILS_DEFAULT_LOGGER = Logger.new(STDERR)
     RAILS_DEFAULT_LOGGER.level = Logger::WARN
@@ -73,6 +73,8 @@ Rails::Initializer.run do |config|
 
   # Activate observers that should always be running
   config.active_record.observers = :annotation_reindexer,
+      :assay_reindexer,
+      :assay_asset_reindexer,
       :measured_item_reindexer,
       :studied_factor_reindexer,
       :experimental_condition_reindexer,
@@ -81,10 +83,9 @@ Rails::Initializer.run do |config|
       :compound_reindexer,
       :synonym_reindexer
 
-
 end
 Mime::Type.register "application/x-endnote-refer", :enw
-RAILS_CACHE = ActiveSupport::Cache::MemCacheStore.new
+
 
 
 
