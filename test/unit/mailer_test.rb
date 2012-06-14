@@ -12,7 +12,7 @@ class MailerTest < ActionMailer::TestCase
 
     @expected.body    = read_fixture('signup')
     
-    pretend_now_is(@expected.date) do
+    force_now_is(@expected.date) do
       assert_equal @expected.encoded, Mailer.create_signup(users(:aaron),"localhost").encoded
     end
     
@@ -26,7 +26,7 @@ class MailerTest < ActionMailer::TestCase
 
     @expected.body    = read_fixture('signup_openid')
     
-    pretend_now_is(@expected.date) do
+    force_now_is(@expected.date) do
       assert_equal @expected.encoded, Mailer.create_signup(users(:aaron_openid),"localhost").encoded
     end
     
@@ -42,7 +42,7 @@ class MailerTest < ActionMailer::TestCase
     @expected.body    = read_fixture('announcement_notification')
     
     person=people(:fred)
-    pretend_now_is(@expected.date) do
+    force_now_is(@expected.date) do
       assert_equal @expected.encoded, Mailer.create_announcement_notification(announcement,person.notifiee_info,"localhost").encoded
     end    
   end
@@ -54,7 +54,7 @@ class MailerTest < ActionMailer::TestCase
     @expected.date    = Time.now
 
     @expected.body    = read_fixture('feedback_anon')
-    pretend_now_is(@expected.date) do
+    force_now_is(@expected.date) do
       assert_equal @expected.encoded,Mailer.create_feedback(users(:aaron),"This is a test feedback","testing the feedback message",true,"localhost").encoded
     end
   end
@@ -67,7 +67,7 @@ class MailerTest < ActionMailer::TestCase
     @expected.date    = Time.now
 
     @expected.body    = read_fixture('feedback_non_anon')
-    pretend_now_is(@expected.date) do
+    force_now_is(@expected.date) do
       assert_equal @expected.encoded,Mailer.create_feedback(users(:aaron),"This is a test feedback","testing the feedback message",false,"localhost").encoded
     end
   end
@@ -85,7 +85,7 @@ class MailerTest < ActionMailer::TestCase
     resource=data_files(:picture)
     user=users(:aaron)
     details="here are some more details"
-    pretend_now_is(@expected.date) do
+    force_now_is(@expected.date) do
       assert_equal @expected.encoded,Mailer.create_request_resource(user,resource,details,"localhost").encoded
     end
   end
@@ -104,7 +104,7 @@ class MailerTest < ActionMailer::TestCase
 
     resources=[assays(:metabolomics_assay),data_files(:picture),models(:teusink),assays(:metabolomics_assay2),data_files(:sysmo_data_file)]
 
-    pretend_now_is(@expected.date) do
+    force_now_is(@expected.date) do
       assert_equal @expected.encoded,Mailer.create_request_publishing(publisher,owner,resources,"localhost").encoded
     end
   end
@@ -122,7 +122,7 @@ class MailerTest < ActionMailer::TestCase
     resource=data_files(:picture)
     user=users(:aaron)
     details=""
-    pretend_now_is(@expected.date) do
+    force_now_is(@expected.date) do
       assert_equal @expected.encoded,Mailer.create_request_resource(user,resource,details,"localhost").encoded
     end
   end
@@ -139,13 +139,13 @@ class MailerTest < ActionMailer::TestCase
     u.reset_password_code_until = 1.day.from_now
     u.reset_password_code="fred"
     
-    pretend_now_is(@expected.date) do
+    force_now_is(@expected.date) do
       assert_equal @expected.encoded, Mailer.create_forgot_password(users(:aaron),"localhost").encoded
     end    
   end
 
   test "contact_admin_new_user_no_profile" do
-    recipients = ["Quentin Jones <quentin@email.com>","\r\nProject Manager <manager@email.com>"]
+    recipients = ["Quentin Jones <quentin@email.com>","\r\nProject Manager <project_manager@email.com>"]
     @expected.subject = 'SEEK member signed up'
     @expected.to =  recipients
     @expected.from    = "no-reply@sysmo-db.org"
@@ -154,11 +154,28 @@ class MailerTest < ActionMailer::TestCase
 
     @expected.body    = read_fixture('contact_admin_new_user_no_profile')
     
-    pretend_now_is(@expected.date) do
+    force_now_is(@expected.date) do
       assert_equal @expected.encoded, 
         Mailer.create_contact_admin_new_user_no_profile("test message",users(:aaron),"localhost").encoded
     end
     
+  end
+
+  test "contact_project_manager_new_user_no_profile" do
+    project_manager = Factory(:project_manager)
+    @expected.subject = 'SEEK member signed up, please assign this person to the projects which you are project manager'
+    @expected.to = project_manager.email_with_name
+    @expected.from    = "no-reply@sysmo-db.org"
+    @expected.reply_to = "Aaron Spiggle <aaron@email.com>"
+    @expected.date    = Time.now
+
+    @expected.body    = read_fixture('contact_project_manager_new_user_no_profile')
+
+    force_now_is(@expected.date) do
+      assert_equal @expected.encoded,
+        Mailer.create_contact_project_manager_new_user_no_profile(project_manager,"test message",users(:aaron),"localhost").encoded
+    end
+
   end
 
   test "welcome" do
@@ -169,7 +186,7 @@ class MailerTest < ActionMailer::TestCase
     
     @expected.body = read_fixture('welcome')
     
-    pretend_now_is(@expected.date) do
+    force_now_is(@expected.date) do
       assert_equal @expected.encoded, Mailer.create_welcome(users(:quentin),"localhost").encoded
     end
   end

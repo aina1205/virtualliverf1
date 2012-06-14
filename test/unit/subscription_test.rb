@@ -6,6 +6,8 @@ class SubscriptionTest < ActiveSupport::TestCase
     User.current_user = Factory(:user)
   end
 
+  
+
   test 'subscribing and unsubscribing toggle subscribed?' do
     s = Factory(:subscribable)
 
@@ -37,7 +39,7 @@ class SubscriptionTest < ActiveSupport::TestCase
     current_person.project_subscriptions.create :project => proj, :frequency => 'immediately'
     s = Factory(:subscribable, :projects => [Factory(:project), proj], :policy => Factory(:public_policy))
     s.subscribe; s.save!
-
+    
     assert_emails(1) do
       Factory(:activity_log, :activity_loggable => s, :action => 'update')
     end
@@ -75,8 +77,23 @@ class SubscriptionTest < ActiveSupport::TestCase
     end
   end
 
+  test 'wonky people' do
+    Person.all.each do |p|
+      unless p.valid?
+        puts p.inspect
+        puts p.errors.full_messages
+      end
+    end
+  end
+
   test 'subscribers who do not receive notifications dont receive emails' do
-    User.current_user = Factory(:person, :notifiee_info => Factory(:notifiee_info, :receive_notifications => false)).user
+    current_person.reload
+    current_person.notifiee_info.receive_notifications = false
+    current_person.notifiee_info.save!
+    current_person.reload
+
+    assert !current_person.receive_notifications?
+    
     proj = Factory(:project)
     current_person.project_subscriptions.create :project => proj, :frequency => 'immediately'
     s = Factory(:subscribable, :projects => [proj], :policy => Factory(:public_policy))

@@ -32,6 +32,15 @@ class ContentBlob < ActiveRecord::Base
   def spreadsheet_annotations
     worksheets.collect {|w| w.cell_ranges.collect {|c| c.annotations}}.flatten
   end
+
+  #returns the size of the file in bytes, or nil if the file doesn't exist
+  def filesize
+    if file_exists?
+      File.size(filepath)
+    else
+      nil
+    end
+  end
   
   def check_version
     if asset_version.nil? && !asset.nil?
@@ -52,7 +61,11 @@ class ContentBlob < ActiveRecord::Base
       save unless other_changes
     end
     super
-  end    
+  end
+
+  def cache_key
+    "#{super}-#{md5sum}"
+  end
   
   #returns an IO Object to the data content, or nil if the data file doesn't exist. 
   # In the case that there is a URL defined, but no local copy, the IO Object is still nil.

@@ -8,12 +8,21 @@ module SpreadsheetUtil
   include SpreadsheetRepresentation
   include SysMODB::SpreadsheetExtractor
 
-  def is_spreadsheet?
-    self.content_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+  EXTRACTABLE_FILE_SIZE=1*1024*1024
+
+  #is excel and is smaller than 10Mb
+  def is_extractable_spreadsheet?
+    is_excel? && !content_blob.filesize.nil? && content_blob.filesize<=EXTRACTABLE_FILE_SIZE
+  end
+
+  def is_excel?
     self.content_type == "application/vnd.ms-excel" ||
     self.content_type == "application/vnd.excel" ||
     self.content_type == "application/excel" ||
-    self.content_type == "application/x-msexcel"
+    self.content_type == "application/x-msexcel" ||
+    self.content_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    self.content_type == "application/vnd.ms-excel.sheet.macroEnabled.12" ||
+    self.content_type.try(:include?,"excel")
   end
 
   def spreadsheet_annotations
@@ -23,7 +32,7 @@ module SpreadsheetUtil
   #Return the data file's spreadsheet
   #If it doesn't exist yet, it gets created
   def spreadsheet
-    if is_spreadsheet?
+    if is_extractable_spreadsheet?
       workbook = parse_spreadsheet_xml(spreadsheet_xml)
       if content_blob.worksheets.empty?
         workbook.sheets.each_with_index do |sheet, sheet_number|
@@ -40,15 +49,12 @@ module SpreadsheetUtil
   #Return the data file's spreadsheet XML
   #If it doesn't exist yet, it gets created
   def spreadsheet_xml
-    if is_spreadsheet?
-       if File.exists?(cached_spreadsheet_path)
-         return File.open(cached_spreadsheet_path, "r") {|f| f.read}
-       else
-         content_blob.worksheets.clear #Expire all worksheets
-         return cache_spreadsheet
-       end
+    if is_extractable_spreadsheet?
+      Rails.cache.fetch("#{content_blob.cache_key}-ss-xml") do
+        spreadsheet_to_xml(open(content_blob.filepath))
+      end
     else
-      return nil
+      nil
     end
   end
   
@@ -56,12 +62,11 @@ module SpreadsheetUtil
   # a Workbook object
   def parse_spreadsheet_xml(spreadsheet_xml)
     workbook = Workbook.new
-
-    spreadsheet_xml = spreadsheet_xml.gsub(/xmlns=\"([^\"]*)\"/,"") #Strip NS
     
     doc = LibXML::XML::Parser.string(spreadsheet_xml).parse
+    doc.root.namespaces.default_prefix="ss"
     
-    doc.find("//style").each do |s|
+    doc.find("//ss:style").each do |s|
       style = Style.new(s["id"])
       s.children.each do |a|
         style.attributes[a.name] = a.content unless (a.name == "text")
@@ -70,7 +75,7 @@ module SpreadsheetUtil
     end
 
 
-   doc.find("//sheet").each do |s|
+   doc.find("//ss:sheet").each do |s|
      unless s["hidden"] == "true" || s["very_hidden"] == "true"
        sheet = Sheet.new(s["name"])
        workbook.sheets << sheet
@@ -78,7 +83,7 @@ module SpreadsheetUtil
        min_rows = 10
        min_cols = 10
          #Grab columns
-       columns = s.find("./columns/column")
+       columns = s.find("./ss:columns/ss:column")
        col_index = 0
        #Add columns
        columns.each do |c|
@@ -88,16 +93,15 @@ module SpreadsheetUtil
        end
        #Pad columns (so it's at least 10 cols wide)
        if col_index < min_cols
-         for i in (col_index..min_cols)
+         for i in ((col_index+1)..min_cols)
            col = Column.new(i, 2964.to_s)
            sheet.columns << col
          end
-         min_cols = 10
        else
          min_cols = col_index
        end
          #Grab rows
-       rows = s.find("./rows/row")
+       rows = s.find("./ss:rows/ss:row")
        row_index = 0
        #Add rows
        rows.each do |r|
@@ -105,7 +109,7 @@ module SpreadsheetUtil
          row = Row.new(row_index, r["height"])
          sheet.rows[row_index] = row
          #Add cells
-         r.find("./cell").each do |c|
+         r.find("./ss:cell").each do |c|
            col_index = c["column"].to_i
            content = c.content
            content = content.to_f if c["type"] == "numeric"

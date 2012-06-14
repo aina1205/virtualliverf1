@@ -15,9 +15,8 @@ class ReindexerObserver < ActiveRecord::Observer
   end
 
   def reindex item
-    consequences(item).each do |consequence|
-      consequence.solr_save
-    end
+    concs = Array(consequences(item))
+    ReindexingJob.add_items_to_queue(concs,10.seconds.from_now)
   end
 
 end

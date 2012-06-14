@@ -4,7 +4,7 @@
 require 'seek/config'
 
 #Main settings
-Seek::Config.default :public_seek_enabled,false
+Seek::Config.default :public_seek_enabled,true
 Seek::Config.default :sycamore_enabled,true
 Seek::Config.default :events_enabled,true
 Seek::Config.default :jerm_enabled,true
@@ -13,7 +13,7 @@ Seek::Config.default :smtp, {:address => '', :port => '25', :domain => '', :auth
 Seek::Config.default :noreply_sender, 'seek1@virtual-liver.de'
 Seek::Config.default :solr_enabled,false
 Seek::Config.default :jws_enabled, true
-Seek::Config.default :jws_online_root,"http://jjj.mib.ac.uk"
+Seek::Config.default :jws_online_root,"http://www.jjj.bio.vu.nl"
 Seek::Config.default :sabiork_ws_base_url, "http://sabiork.h-its.org/sabioRestWebServices/"
 Seek::Config.default :exception_notification_enabled,false
 Seek::Config.default :exception_notification_recipients,""
@@ -32,6 +32,10 @@ Seek::Config.default :community_news_enabled,false
 Seek::Config.default :community_news_feed_urls,''
 Seek::Config.default :community_news_number_of_entries,10
 Seek::Config.default :home_description, 'Some (configurable) information about the project and what we do goes here.'
+Seek::Config.default :publish_button_enabled,false
+Seek::Config.default :auth_caching_enabled,true
+Seek::Config.default :strategic_eager_loading, true
+Seek::Config.default :auth_lookup_enabled,false
 
 Seek::Config.default :presentations_enabled,true
 Seek::Config.default :scales,["organism","liver","liverLobule","intercellular","cell"]
@@ -67,6 +71,13 @@ Seek::Config.default :crossref_api_email,nil
 Seek::Config.default :site_base_host,"http://localhost:3000"
 Seek::Config.default :open_id_authentication_store,:memory
 Seek::Config.default :seek_video_link, "http://www.youtube.com/user/elinawetschHITS?feature=mhee#p/u"
+#Biosamples renaming
+Seek::Config.default :sample_parent_term, "cell culture batch"
+Seek::Config.default :specimen_culture_starting_date,"Culture starting date"
+Seek::Config.default :sample_age, "Age at sampling(hours)"
+Seek::Config.default :specimen_creators, "Creators"
+
+
 Seek::Config.default :max_attachments_num,100
 
 Seek::Config.default :admin_impersonation_enabled, true

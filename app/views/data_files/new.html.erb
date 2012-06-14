@@ -1,8 +1,10 @@
 <%= javascript_include_tag "sharing.js","associate_events.js","assays.js","attribution.js","resource.js" -%>
-
-<h1>New Data file</h1>
+<% @page_title ||= "New Data file" %>
+<h1><%= @page_title %></h1>
 <div class="show_basic">
     <% form_tag({:action => :create}, :multipart => true) do -%>
+      <%= hidden_field_tag 'data_file[parent_name]', @data_file.parent_name%>
+      <%= hidden_field_tag 'data_file[is_with_sample]', @data_file.is_with_sample%>
     <div class="asset_form">
         <%= error_messages_for :data_file -%>
         <%= render :partial=>"assets/upload_box" -%>
@@ -40,7 +42,7 @@
 
         <p>
           <%= preview_permission_popup_link('data_file', url_for(:controller => 'policies', :action => 'preview_permissions'), true)-%>
-          <%= submit_tag "Upload and Save", :id => "data_file_submit_btn", :onclick => "javascript: validateResourceFields(true,'data_file'); return(false);" -%> or <%= link_to 'Cancel', data_files_path -%>
+          <%= submit_tag "Upload and Save", :id => "data_file_submit_btn", :onclick => "javascript: validateResourceFields(true,'data_file',true); return(false);" -%> or <%= link_to 'Cancel', data_files_path -%>
         </p>
     </div>
     <% end -%>

@@ -1,7 +1,8 @@
 body {
-	background: #8e8e8e url('/images/body-bg.png') repeat-y center;
 	font-family: arial;
-	line-height: 1.0;	
+	line-height: 1.0;
+    border-left: #8e8e8e solid 10px;
+    border-right: #8e8e8e solid 10px;
 }
 
 
@@ -96,7 +97,7 @@ min-width:
 }
 
 .tabnav {
-    text-align: left;
+    text-align: center;
     font-weight: bolder;
     font-size: 95%;
     padding: 4px 0 3px 2em;
@@ -353,7 +354,7 @@ span.disabled_icon {
 }
 
 .contribution_section_box {
-	background-image: url('/images/box-bg1.png');
+	background-image: url('../images/box-bg1.png');
 	background-position: top;
 	background-repeat: repeat-x;
 	background-color: #FFFFCC;
@@ -778,7 +779,7 @@ img.badge {
 #topbar {
     height: 20px;
     text-align: center;
-    background-image: url('/images/searchfade-repeat.png');
+    background-image: url('../images/searchfade-repeat.png');
     background-repeat: repeat-x;
     background-position: top center;
     padding: 10px 0;
@@ -920,7 +921,7 @@ ul.related_asset_list li{
     padding-top: 0.5em;
     background-color: #F0F0F0;
     margin-left: 1em;
-    margin-top: 1em;
+    margin-top: 0.5em;
     text-align: center;
 	margin-bottom: 0.5em;
 }
@@ -1010,7 +1011,7 @@ ul.horiz_list_items li {
     border: 2px solid #999;
     border-width: 1px 0 1px 0;
     color: #333;
-    background-image: url('/images/footer-bg.png');
+    background-image: url('../images/footer-bg.png');
     background-position: top;
     background-repeat: repeat-x;
     background-color: #eee;
@@ -1039,8 +1040,11 @@ ul.horiz_list_items li {
     line-height: 1;	
 }
 
+#ft td.left {
+    width: 10em;
+}
+
 #ft td.left p {
-    width: 110px;
     text-align: center;
 }
 
@@ -1227,7 +1231,7 @@ div.collapsable_div {
 
 div.collapsable_div_header {
   margin: 0; 
-  background-image: url('/images/header-bg.png');
+  background-image: url('../images/header-bg.png');
   background-position: top;
   background-repeat: repeat-x;
   background-color: #eee;
@@ -1363,6 +1367,7 @@ a.block_link {
   margin-top: 0.3em;
   text-align: left;
   vertical-align: middle;
+  width: 17em;
 }
 
 a.block_link_active {
@@ -1614,8 +1619,69 @@ div.compounds {
     padding: 0 1em 0.5em 1em;
 }
 
+div.strain {
+    border: 1px solid #DDD;
+    float: left;
+    margin-left: 2em;
+    margin-top: 1em;
+    margin-bottom: 1em;
+    margin-right: 2em;
+    width: 50em;
+    padding: 0 1em 0.5em 1em;
+}
+
+ul.genes li {
+    list-style-type:none;
+}
+
+ul.genes {
+    float: left;
+    margin-top: 2em;
+}
+
+ul.gene_row {
+    clear:both;
+    border-bottom: dotted #d3d3d3 1px;
+}
+
+ul.gene_row li {
+    float:left;
+    padding: 0 0.6em 0.25em 0.25em;
+    text-align:left;
+    min-height: 2em;
+}
+
+ul.modifications li {
+    list-style-type:none;
+}
+
+ul.modifications {
+    float: left;
+    margin-top: 2em;
+}
+#search_box input[type="text"] {
+    width: 28em;
+}
+
+#search_box input[type="text"] {
+    width: 28em;
+}
 
 
+ul.modification_row {
+    clear:both;
+    border-bottom: dotted #d3d3d3 1px;
+}
 
+ul.modification_row li {
+    float:left;
+    padding: 0 0.6em 0.25em 0.25em;
+    text-align:left;
+    min-height: 2em;
+}
+
+div.sharing_summary {
+    text-align: center;
+}
 
 

@@ -1,14 +1,16 @@
 class Policy < ActiveRecord::Base
   
-  has_many :assets,
-           :dependent => :nullify,
-           :order => "resource_type ASC"
-  
   has_many :permissions,
            :dependent => :destroy,
            :order => "created_at ASC",
            :autosave => true,
            :after_add => proc {|policy, perm| perm.policy = policy}
+
+  before_save :update_timestamp_if_permissions_change
+
+  def update_timestamp_if_permissions_change
+    update_timestamp if changed_for_autosave?
+  end
 
   #basically the same as validates_numericality_of :sharing_scope, :access_type
   #but with a more generic error message because our users don't know what
@@ -24,15 +26,18 @@ class Policy < ActiveRecord::Base
 
   alias_attribute :title, :name
 
-  before_save :update_timestamp_if_permissions_change
+  default_scope :include=>:permissions
 
-  def update_timestamp_if_permissions_change
-    if changed_for_autosave?
-      current_time = current_time_from_proper_timezone
+  after_save :queue_update_auth_table
 
-      write_attribute('updated_at', current_time) if respond_to?(:updated_at)
-      write_attribute('updated_on', current_time) if respond_to?(:updated_on)
-    end
+  def queue_update_auth_table
+    AuthLookupUpdateJob.add_items_to_queue(assets) unless assets.empty?
+  end
+
+  def assets
+    Seek::Util.authorized_types.collect do |type|
+      type.find(:all,:conditions=>{:policy_id=>id})
+    end.flatten.uniq
   end
   
   
@@ -86,6 +91,22 @@ class Policy < ActiveRecord::Base
     return policy
   end
 
+  def self.new_from_email(resource, recipients, accessors)
+    policy = resource.build_policy(:name               => 'auto',
+                                   :sharing_scope      => Policy::PRIVATE,
+                                   :access_type        => Policy::NO_ACCESS)
+    recipients.each do |id|
+      policy.permissions.build :contributor_type => "Person", :contributor_id => id, :access_type => Policy::EDITING
+    end if recipients
+
+    accessors.each do |id|
+      policy.permissions.build :contributor_type => "Person", :contributor_id => id, :access_type => Policy::ACCESSIBLE
+    end if accessors
+
+    return policy
+  end
+
+
   def set_attributes_with_sharing sharing, projects
     # if no data about sharing is given, it should be some user (not the owner!)
     # who is editing the asset - no need to do anything with policy / permissions: return success
@@ -101,9 +122,9 @@ class Policy < ActiveRecord::Base
         # NOW PROCESS THE PERMISSIONS
 
         # read the permission data from sharing
-        unless sharing[:permissions].blank?
-          contributor_types = ActiveSupport::JSON.decode(sharing[:permissions][:contributor_types])
-          new_permission_data = ActiveSupport::JSON.decode(sharing[:permissions][:values])
+        unless sharing[:permissions].blank? or sharing[:permissions][:contributor_types].blank?
+          contributor_types = ActiveSupport::JSON.decode(sharing[:permissions][:contributor_types]) || []
+          new_permission_data = ActiveSupport::JSON.decode(sharing[:permissions][:values]) || {}
         else
           contributor_types = []
           new_permission_data = {}
@@ -166,7 +187,7 @@ class Policy < ActiveRecord::Base
   end
 
   #The default policy to use when creating authorized items if no other policy is specified
-  def self.default
+  def self.default resource=nil
     Policy.new(:name => "default accessible", :use_whitelist => false, :use_blacklist => false)
   end
    
@@ -237,7 +258,7 @@ class Policy < ActiveRecord::Base
   end
 
 #return the hash: key is access_type, value is the array of people
-  def summarize_permissions creators=[User.current_user.person], contributor=User.current_user.person
+  def summarize_permissions creators=[User.current_user.try(:person)], asset_managers = [], contributor=User.current_user.try(:person)
         #build the hash containing contributor_type as key and the people in these groups as value,exception:'Public' holds the access_type as the value
         people_in_group = {'Person' => [], 'FavouriteGroup' => [], 'WorkGroup' => [], 'Project' => [], 'Institution' => [], 'WhiteList' => [], 'BlackList' => [],'Network' => [], 'Public' => 0}
         #the result return: a hash contain the access_type as key, and array of people as value
@@ -245,7 +266,7 @@ class Policy < ActiveRecord::Base
 
         policy_to_people_group people_in_group, contributor
 
-        permissions_to_people_group permissions, people_in_group, contributor
+        permissions_to_people_group permissions, people_in_group
 
         #Now make the people in group unique by choosing the highest access_type
         people_in_group['FavouriteGroup']  = remove_duplicate(people_in_group['FavouriteGroup'])
@@ -263,15 +284,15 @@ class Policy < ActiveRecord::Base
 
         #add people in white list
         filtered_people = add_people_in_whitelist(filtered_people, people_in_group['WhiteList'])
-        #remove people in blacklist
-        filtered_people = remove_people_in_blacklist(filtered_people, people_in_group['BlackList'])
+        #add people in blacklist
+        filtered_people = precedence(filtered_people, people_in_group['BlackList'])
 
         #add creators and assign them the Policy::EDITING right
-        creators.collect!{|c| [c.id, "#{c.first_name} #{c.last_name}", Policy::EDITING] unless c.blank?}
-        filtered_people = add_people_in_whitelist(filtered_people, creators)
+        creator_array = creators.collect{|c| [c.id, "#{c.name}", Policy::EDITING] unless c.blank?}
+        filtered_people = add_people_in_whitelist(filtered_people, creator_array)
 
         #add contributor
-        filtered_people = add_people_in_whitelist(filtered_people, [[contributor.id, "#{contributor.first_name} #{contributor.last_name}", Policy::MANAGING]]) unless contributor.blank?
+        filtered_people = add_people_in_whitelist(filtered_people, [[contributor.id, "#{contributor.name}", Policy::MANAGING]]) unless contributor.blank?
 
         #sort people by name
         filtered_people = filtered_people.sort{|a,b| a[1] <=> b[1]}
@@ -279,17 +300,20 @@ class Policy < ActiveRecord::Base
         #group people by access_type
         grouped_people_by_access_type.merge!(filtered_people.group_by{|person| person[2]})
 
-        #add publishing if access_type for public > 0
-        grouped_people_by_access_type[Policy::PUBLISHING] = people_in_group['Public'] if people_in_group['Public'] > 0
-
-        #only store (people in backlist) + (people in people_in_group['Person'] with no access) to the group of access_type=Policy::NO_ACCESS
-        people_with_no_access = []
-        people_with_no_access.concat(people_in_group['BlackList']) unless people_in_group['BlackList'].blank?
-        people_with_no_access.concat(people_in_group['Person'].group_by{|person| person[2]}[Policy::NO_ACCESS]) unless people_in_group['Person'].group_by{|person| person[2]}[Policy::NO_ACCESS].blank?
-        people_with_no_access.uniq!
-        unless people_with_no_access.blank?
-           grouped_people_by_access_type[Policy::NO_ACCESS] = people_with_no_access.sort{|a,b| a[1] <=> b[1]}
+        if !is_entirely_private? grouped_people_by_access_type, contributor
+          asset_manager_array = asset_managers.collect{|am| [am.id, "#{am.name}", Policy::MANAGING] unless am.blank?}
+          if grouped_people_by_access_type[Policy::MANAGING].blank?
+            grouped_people_by_access_type[Policy::MANAGING] = asset_manager_array
+          else
+            grouped_people_by_access_type[Policy::MANAGING] |= asset_manager_array
+          end
         end
+
+        #concat the roles to a person name
+        concat_roles_to_name grouped_people_by_access_type, creators, asset_managers
+
+        #use Policy::DETERMINED_BY_GROUP to store public group if access_type for public > 0
+        grouped_people_by_access_type[Policy::DETERMINED_BY_GROUP] = people_in_group['Public'] if people_in_group['Public'] > 0
 
         #sort by key of the hash
         grouped_people_by_access_type = Hash[grouped_people_by_access_type.sort]
@@ -317,7 +341,7 @@ class Policy < ActiveRecord::Base
       people_in_group
   end
 
-  def permissions_to_people_group permissions, people_in_group, contributor=User.current_user.person
+  def permissions_to_people_group permissions, people_in_group
       permissions.each do |permission|
         contributor_id = permission.contributor_id
         access_type = permission.access_type
@@ -326,7 +350,7 @@ class Policy < ActiveRecord::Base
                person = get_person contributor_id, access_type
                people_in_group['Person'] << person unless person.blank?
            when 'FavouriteGroup'
-               people_in_FG = get_people_in_FG contributor, contributor_id
+               people_in_FG = get_people_in_FG nil, contributor_id
                people_in_group['FavouriteGroup'] |= people_in_FG unless people_in_FG.blank?
            when 'WorkGroup'
                people_in_WG = get_people_in_WG contributor_id, access_type
@@ -346,7 +370,7 @@ class Policy < ActiveRecord::Base
   def get_person person_id, access_type
       person = Person.find(person_id)
       if person
-        return [person.id, "#{person.first_name} #{person.last_name}", access_type]
+        return [person.id, "#{person.name}", access_type]
       end
   end
 
@@ -355,8 +379,8 @@ class Policy < ActiveRecord::Base
       w_group = WorkGroup.find(wg_id)
     if w_group
       people_in_wg = [] #id, name, access_type
-      w_group.group_memberships.each do |gm|
-        people_in_wg.push [gm.person.id, "#{gm.person.first_name} #{gm.person.last_name}", access_type ]
+      w_group.people.each do |person|
+        people_in_wg.push [person.id, "#{person.name}", access_type ] unless person.blank?
       end
     end
     return people_in_wg
@@ -375,7 +399,7 @@ class Policy < ActiveRecord::Base
     if f_group
       people_in_FG = [] #id, name, access_type
       f_group.favourite_group_memberships.each do |fgm|
-        people_in_FG.push [fgm.person.id, "#{fgm.person.first_name} #{fgm.person.last_name}", fgm.access_type]
+        people_in_FG.push [fgm.person.id, "#{fgm.person.name}", fgm.access_type] if !fgm.blank? and !fgm.person.blank?
       end
       return people_in_FG
     end
@@ -388,7 +412,7 @@ class Policy < ActiveRecord::Base
     if project
       people_in_project = [] #id, name, access_type
       project.people.each do |person|
-        people_in_project.push [person.id, "#{person.first_name} #{person.last_name}", access_type]
+        people_in_project.push [person.id, "#{person.name}", access_type] unless person.blank?
       end
       return people_in_project
     end
@@ -400,7 +424,7 @@ class Policy < ActiveRecord::Base
     if institution
       people_in_institution = [] #id, name, access_type
       institution.people.each do |person|
-        people_in_institution.push [person.id, "#{person.first_name} #{person.last_name}", access_type]
+        people_in_institution.push [person.id, "#{person.name}", access_type] unless person.blank?
       end
       return people_in_institution
     end
@@ -412,8 +436,10 @@ class Policy < ActiveRecord::Base
     projects = Project.find(:all)
     projects.each do |project|
       project.people.each do |person|
-        person_identification = [person.id, "#{person.first_name} #{person.last_name}"]
-        people_in_network.push person_identification if (!people_in_network.include? person_identification)
+        unless person.blank?
+          person_identification = [person.id, "#{person.name}"]
+          people_in_network.push person_identification if (!people_in_network.include? person_identification)
+        end
       end
     end
     people_in_network.collect!{|person| person.push access_type}
@@ -461,30 +487,37 @@ class Policy < ActiveRecord::Base
      return result
   end
 
-  #remove people which are in blacklist from the people list
-  def remove_people_in_blacklist(people_list, blacklist)
-     result = []
-     result |= people_list
-     people_list.each do |person|
-       check = false
-       blacklist.each do |person_in_bl|
-        if (person[0] == person_in_bl[0])
-          check = true
-          break
-        end
-       end
-       if check
-          result.delete person
-       end
-     end
-     return result
-  end
-
   #add people which are in whitelist to the people list
   def add_people_in_whitelist(people_list, whitelist)
      result = []
      result |= people_list
      result |= whitelist
      return remove_duplicate(result)
+  end
+
+  def is_entirely_private? grouped_people_by_access_type, contributor
+    entirely_private = true
+    if access_type > Policy::NO_ACCESS
+        entirely_private = false
+    else
+        grouped_people_by_access_type.reject{|key,value| key == Policy::NO_ACCESS || key == Policy::DETERMINED_BY_GROUP}.each_value do |value|
+          value.each do |person|
+            entirely_private = false if (person[0] != contributor.try(:id))
+          end
+        end
+    end
+    return entirely_private
+  end
+
+  def concat_roles_to_name grouped_people_by_access_type, creators, asset_managers
+    creator_id_array = creators.collect{|c| c.id unless c.blank?}
+    asset_manage_id_array = asset_managers.collect{|am| am.id unless am.blank?}
+     grouped_people_by_access_type = grouped_people_by_access_type.reject{|key,value| key == Policy::DETERMINED_BY_GROUP}.each_value do |value|
+       value.each do |person|
+         person[1].concat(' (creator)') if creator_id_array.include?(person[0])
+         person[1].concat(' (asset manager)') if asset_manage_id_array.include?(person[0])
+       end
+     end
+    grouped_people_by_access_type
   end
 end

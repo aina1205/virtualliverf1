@@ -6,35 +6,44 @@ class Specimen < ActiveRecord::Base
   include Subscribable
 
    acts_as_scalable
+  acts_as_authorized
+  acts_as_favouritable
 
   before_save  :clear_garbage
+  attr_accessor :from_biosamples
+
+  has_many :genotypes,:dependent => :destroy
+  has_many :phenotypes,:dependent => :destroy
+  accepts_nested_attributes_for :genotypes, :allow_destroy => true
+  accepts_nested_attributes_for :phenotypes, :allow_destroy => true
 
   has_many :samples
   has_many :activity_logs, :as => :activity_loggable
   has_many :assets_creators, :dependent => :destroy, :as => :asset, :foreign_key => :asset_id
-  has_many :creators, :class_name => "Person", :through => :assets_creators, :order=>'assets_creators.id'
+  has_many :creators, :class_name => "Person", :through => :assets_creators, :order=>'assets_creators.id', :after_add => :update_timestamp, :after_remove => :update_timestamp
 #  accepts_nested_attributes_for :creators
-
   belongs_to :institution
-  belongs_to :organism
   belongs_to :culture_growth_type
   belongs_to :strain
 
-  alias_attribute :description, :comments
-  alias_attribute :title, :donor_number
-  alias_attribute :specimen_number, :donor_number
+  has_one :organism, :through=>:strain
 
-  HUMANIZED_COLUMNS = {:donor_number => "Specimen number"}
+
+  alias_attribute :description, :comments
+
+  HUMANIZED_COLUMNS = Seek::Config.is_virtualliver ? {} : {:born => 'culture starting date', :culture_growth_type => 'culture type'}
+  HUMANIZED_COLUMNS[:title] = "#{Seek::Config.sample_parent_term.capitalize} title"
+  HUMANIZED_COLUMNS[:lab_internal_number] = "#{Seek::Config.sample_parent_term.capitalize} lab internal identifier"
+  HUMANIZED_COLUMNS[:provider_id] = "provider's #{Seek::Config.sample_parent_term} identifier"
 
   validates_numericality_of :age, :only_integer => true, :greater_than=> 0, :allow_nil=> true, :message => "is not a positive integer"
-  validates_presence_of :donor_number
+  validates_presence_of :title,:lab_internal_number, :contributor,:strain
 
-  validates_presence_of :contributor,:lab_internal_number,:projects,:institution,:organism
+  validates_presence_of :institution if Seek::Config.is_virtualliver
+  validates_uniqueness_of :title
 
-  validates_uniqueness_of :donor_number
   def self.sop_sql()
-  'SELECT sop_versions.* FROM sop_versions ' +
-  'INNER JOIN sop_specimens ' +
+  'SELECT sop_versions.* FROM sop_versions ' + 'INNER JOIN sop_specimens ' +
   'ON sop_specimens.sop_id = sop_versions.sop_id ' +
   'WHERE (sop_specimens.sop_version = sop_versions.version ' +
   'AND sop_specimens.specimen_id = #{self.id})'
@@ -44,14 +53,52 @@ class Specimen < ActiveRecord::Base
   has_many :sop_masters,:class_name => "SopSpecimen"
   grouped_pagination :pages=>("A".."Z").to_a, :default_page => Seek::Config.default_page(self.name.underscore.pluralize)
 
-  acts_as_solr(:fields=>[:description,:donor_number,:lab_internal_number],:include=>[:culture_growth_type,:organism,:strain]) if Seek::Config.solr_enabled
+  def build_sop_masters sop_ids
+    # map string ids to int ids for ["1","2"].include? 1 == false
+    sop_ids = sop_ids.map &:to_i
+    sop_ids.each do |sop_id|
+      if sop = Sop.find(sop_id)
+        self.sop_masters.build :sop_id => sop.id, :sop_version => sop.version unless sop_masters.map(&:sop_id).include?(sop_id)
+      end
+    end
+    self.sop_masters = self.sop_masters.select { |s| sop_ids.include? s.sop_id }
+  end
+  def genotype_info
+        genotype_detail = []
+      genotypes.each do |genotype|
+        genotype_detail << genotype.modification.try(:title).to_s + ' ' + genotype.gene.try(:title).to_s if genotype.gene
+      end
+      genotype_detail = genotype_detail.blank? ? 'wild-type' : genotype_detail.join('; ')
+      genotype_detail
+    end
 
-
-  acts_as_authorized
+    def phenotype_info
+      phenotype_detail = []
+      phenotypes.each do |phenotype|
+        phenotype_detail << phenotype.try(:description) unless phenotype.try(:description).blank?
+      end
+      phenotype_detail = phenotype_detail.blank? ? 'wild-type' : phenotype_detail.join('; ')
+      phenotype_detail
+    end
 
   def related_people
     creators
-  end
+  end  
+  
+  searchable do
+    text :description,:title,:lab_internal_number
+    text :culture_growth_type do
+      culture_growth_type.try :title
+    end
+    
+    text :strain do
+      strain.try :title
+    end
+    
+    text :institution do
+      institution.try :name
+    end if Seek::Config.is_virtualliver
+  end if Seek::Config.solr_enabled
 
   def age_in_weeks
     if !age.nil?
@@ -115,4 +162,19 @@ class Specimen < ActiveRecord::Base
     HUMANIZED_COLUMNS[attribute.to_sym] || super
   end
 
+  def born_info
+    if born.nil?
+      ''
+    else
+      if try(:born).hour == 0 && try(:born).min == 0 && try(:born).sec == 0
+        try(:born).strftime('%d/%m/%Y')
+      else
+        try(:born).strftime('%d/%m/%Y @ %H:%M:%S')
+      end
+    end
+  end
+
+  def organism
+    strain.try(:organism)
+  end
 end

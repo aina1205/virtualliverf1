@@ -5,6 +5,20 @@ module ApplicationHelper
   include FancyMultiselectHelper
 
 
+  def date_as_string date,show_time_of_day=false
+    if date.blank?
+      str="<span class='none_text'>No date defined</span>"
+    else
+      str = date.strftime("#{date.day.ordinalize} %B %Y")
+      str = date.strftime("#{str} @ %H:%M:%S") if show_time_of_day
+    end
+    str
+  end
+
+  def version_text
+    "(v.#{APP_VERSION.to_s})"
+  end
+
   def authorized_list all_items, attribute, sort=true, max_length=75, count_hidden_items=false
     items = all_items.select &:can_view?
     title_only_items = (all_items - items).select &:title_is_public?
@@ -88,9 +102,13 @@ module ApplicationHelper
     Seek::Util.user_creatable_types.each do |c|
       name=c.name.underscore
       path = eval "new_#{name}_path"
+      data_file_with_sample_path = eval "new_data_file_path(:page_title=>'Data File with Sample Parsing',:is_with_sample=>true)"
       if c==Seek::Util.user_creatable_types.first
         script << "if "
       else
+        script << "else if(selected_model == 'data_file_with_sample'){
+          \n location.href = '#{data_file_with_sample_path}';\n
+        } \n"
         script << "else if "
       end
       script << "(selected_model == '#{name}') {\n location.href = '#{path}';\n }\n"
@@ -102,7 +120,11 @@ module ApplicationHelper
 
   #selection of assets for new asset gadget
   def new_creatable_selection
-    select_tag :new_resource_type, options_for_select(Seek::Util.user_creatable_types.collect{|c| [(c.name.underscore.humanize == "Sop" ? "SOP" : c.name.underscore.humanize),c.name.underscore] })
+    creatable_options = Seek::Util.user_creatable_types.reject {|type| type == Sample}.collect { |c| [(c.name.underscore.humanize == "Sop" ? "SOP" : c.name.underscore.humanize), c.name.underscore] }
+    creatable_options << ["Data file & sample", "data_file_with_sample"]
+    select_tag :new_resource_type, options_for_select(creatable_options)
+
+    #select_tag :new_resource_type, options_for_select(Seek::Util.user_creatable_types.collect{|c| [(c.name.underscore.humanize == "Sop" ? "SOP" : c.name.underscore.humanize),c.name.underscore] })
   end
   
   def is_nil_or_empty? thing
@@ -121,7 +143,7 @@ module ApplicationHelper
   def text_or_not_specified text, options = {}
     text=text.to_s if text.kind_of?(Numeric)
     if text.nil? or text.chomp.empty?
-      not_specified_text="Not specified"
+      not_specified_text=options[:none_text] || "Not specified"
       not_specified_text="No description set" if options[:description]==true
       res = "<span class='none_text'>#{not_specified_text}</span>"
     else      
@@ -336,7 +358,6 @@ module ApplicationHelper
       { :url => url ,
         :failure => "alert('Sorry, an error has occurred.'); RedBox.close();",
         :with => "'sharing_scope=' + selectedSharingScope() + '&access_type=' + selectedAccessType(selectedSharingScope())
-        + '&use_whitelist=' + $('cb_use_whitelist').checked + '&use_blacklist=' + $('cb_use_blacklist').checked
         + '&project_ids=' + getProjectIds('#{resource_name}') + '&project_access_type=' + $F('sharing_your_proj_access_type')
         + '&contributor_types=' + $F('sharing_permissions_contributor_types') + '&contributor_values=' + $F('sharing_permissions_values')
         + '&creators=' + getCreators() + '&contributor_id=' + '#{contributor_id}' + '&resource_name=' + '#{resource_name}' + '&is_new_file=' + '#{is_new_file}'"},
@@ -426,8 +447,8 @@ module ApplicationHelper
     count
   end
 
-  def set_parameters_for_sharing_form
-    object = eval "@#{controller_name.singularize}"
+  def set_parameters_for_sharing_form object=nil
+    object ||= eval "@#{controller_name.singularize}"
     policy = nil
     policy_type = ""
 
@@ -491,7 +512,7 @@ module ApplicationHelper
   end
 
   def display_people_list people
-    html = '<ul>'
+    html = "<ul class='people_list'>"
     people.each do |person|
        html<< "<li><a href='#{person_path(person[0])}' target='_blank'>#{person[1]}</a></li>"
     end

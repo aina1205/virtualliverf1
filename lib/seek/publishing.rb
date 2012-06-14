@@ -3,6 +3,7 @@ module Seek
 
     def self.included(base)
       base.before_filter :set_asset, :only=>[:preview_publish,:publish]
+      base.before_filter :publish_auth, :only=>[:preview_publish,:publish]
     end
 
     def preview_publish
@@ -14,28 +15,39 @@ module Seek
     end
 
     def publish
-      items_for_publishing = resolve_publish_params params[:publish]
-      items_for_publishing << @asset unless items_for_publishing.include? @asset
-      @notified_items = items_for_publishing.select{|i| !i.can_manage?}
-      @published_items = items_for_publishing - @notified_items
+      if request.post?
+        items_for_publishing = resolve_publish_params params[:publish]
+        items_for_publishing << @asset unless items_for_publishing.include? @asset
+        @notified_items = items_for_publishing.select{|i| !i.can_manage?}
+        @published_items = items_for_publishing - @notified_items
 
-      @problematic_items = @published_items.select{|item| !item.publish!}
+        @problematic_items = @published_items.select{|item| !item.publish!}
 
-      if Seek::Config.email_enabled && !@notified_items.empty?
-        deliver_publishing_notifications @notified_items
-      end
+        if Seek::Config.email_enabled && !@notified_items.empty?
+          deliver_publishing_notifications @notified_items
+        end
 
-      @published_items = @published_items - @problematic_items
+        @published_items = @published_items - @problematic_items
 
-      respond_to do |format|
-        flash.now[:notice]="Publishing complete"
-        format.html { render :template=>"assets/publish/published" }
+        respond_to do |format|
+          flash.now[:notice]="Publishing complete"
+          format.html { render :template=>"assets/publish/published" }
+        end
+      else
+        redirect_to @asset
       end
     end
 
     def set_asset
       c = self.controller_name.downcase
       @asset = eval("@"+c.singularize)
+    end
+
+    def publish_auth
+      unless Seek::Config.publish_button_enabled
+        error("This feature is is not yet currently available","invalid route")
+        return false
+      end
     end
 
     private

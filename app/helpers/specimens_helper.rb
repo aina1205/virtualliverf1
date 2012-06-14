@@ -17,15 +17,15 @@ module SpecimensHelper
    end
 
 
-  def specimen_organism_list organism,strain,culture_growth_type,none_text="Not Specified"
+  def specimen_organism_list organism,strain,culture_growth_type=nil,none_text="Not Specified"
     result=""
     result ="<span class='none_text'>#{none_text}</span>" if organism.nil?
     if organism
       result = link_to h(organism.title),organism,{:class => "assay_organism_info"}
 
-      if strain
+      if strain && !strain.is_dummy?
         result += " : "
-        result += link_to h(strain.title),strain,{:class => "assay_strain_info"}
+        result +=  "#{h(strain.info)}"
       end
 
       if culture_growth_type
@@ -119,5 +119,10 @@ module SpecimensHelper
     return result
   end
 
+  def sex_list_for_selection
+    sex_list = [["male",0], ["female",1]]
+    sex_list |= Seek::Config.is_virtualliver ? [["hermaphrodite",2]] : [["F+",2],["F-",3]]
+    sex_list
+  end
 
 end

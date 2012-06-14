@@ -48,8 +48,8 @@ module Seek
         people.select{|p| !p.user.nil?}
       end
       
-      private 
-      
+      private
+
       def authorised_assets assets,action
         assets.select{|asset| asset.can_perform? action, @user}
       end
@@ -62,8 +62,7 @@ module Seek
         return size
       end
     end  
-    
-    
+
     def self.generate    
       result=[]    
       Project.all.each do |project|

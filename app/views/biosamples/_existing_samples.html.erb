@@ -1,0 +1,75 @@
+<script type="text/javascript" charset="utf-8">
+    $j(document).ready(function() {
+        sample_table = $j('#sample_table').dataTable({
+            "bPaginate": false,
+            "bLengthChange": false,
+            "bFilter": true,
+            "bSort": true,
+            "bInfo": false,
+            "bAutoWidth": false,
+            "bRetrieve": true,
+            "aaSorting": [
+                [ 1, "asc" ]
+            ],
+            "aoColumns": [
+                null,
+                { "sWidth": "15%" },
+                { "sWidth": "15%" },
+                { "sWidth": "15%" },
+                { "sWidth": "15%" },
+                { "sWidth": "15%" },
+                { "sWidth": "5%" },
+                { "sWidth": "10%" },
+                { "sWidth": "5%", 'bSortable':false },
+                { "sWidth": "5%", 'bSortable':false }
+            ],
+            "fnInitComplete": function () {
+                this.fnAdjustColumnSizing(true);
+            }
+        }).rowGrouping({"sGrupingClass": 'row_group_color'});
+
+    });
+</script>
+  <% unless specimens.blank? %>
+      <h2>Sample</h2>
+      <% if existing_samples.empty? -%>
+          <p class="none_text">No samples have yet been defined for the selected <%= Seek::Config.sample_parent_term -%>s
+          </p>
+      <% else -%>
+          <br/>
+          <br/>
+
+          <div class="scroll_box">
+            <table cellpadding="0" cellspacing="0" border="0" class="display" id="sample_table">
+              <thead>
+              <tr>
+                <th>Specimen</th>
+                <th>Title</th>
+                <th>Lab internal identifier</th>
+                <th>Date at sampling</th>
+                <th><%= Seek::Config.sample_age%></th>
+                <th>Provider name</th>
+                <th>ID</th>
+                <th>Comment</th>
+              </tr>
+              </thead>
+              <tbody>
+              <% existing_samples.each do |sample| -%>
+                  <tr class="gradeX">
+                    <% sample_row_data = sample_row_data sample %>
+                    <% sample_row_data.each do |column_data| %>
+                        <td><%= column_data %></td>
+                    <% end %>
+                  </tr>
+              <% end -%>
+              </tbody>
+            </table>
+          </div>
+      <% end -%>
+    <% if logged_in? and current_user.person.member? %>
+        <ul class="sectionIcons">
+          <li><%= create_sample_popup_link -%></li>
+        </ul>
+        <br/>
+    <% end %>
+<% end -%>
