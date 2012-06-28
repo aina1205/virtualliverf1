@@ -57,6 +57,13 @@ module ProjectsHelper
       project.project_coordinators.select(&:can_view?).collect { |p| link_to(h(p.name), p) }.join(", ")
     end
   end
+  def project_mailing_list project
+      if project.people.empty?
+        "<span class='none_text'>No People in this project</span>";
+      else
+        "<span>" + project.people.sort_by(&:last_name).select(&:can_view?).map{|p|link_to(h(p.name), p) + " (" + p.email + ")"}.join(";<br/>") + "</span>";
+      end
+  end
 
   def tree_editor_display type, show_edit=true, show_delete=true, selected_id=nil, related_resource_type="Person",selective_display=false, foldable=false
 
