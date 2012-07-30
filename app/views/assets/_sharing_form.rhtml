@@ -5,7 +5,7 @@
    disable_can_publish_check ||= false
    show_advanced_permissions = !@resource.respond_to?(:has_advanced_permissions?) || @resource.has_advanced_permissions?
    default_projects_access_type = @resource.is_asset? ? Policy::ACCESSIBLE : Policy::EDITING
-   default_consortium_access_type = Policy::VISIBLE
+   default_consortium_access_type = Policy::ACCESSIBLE
 %>
 <%# initialization: required to keep javascript independent of the access type codes, to allow the use the constants instead -%>
 <%= render :partial=>"assets/sharing_constants" %>
@@ -91,19 +91,11 @@
             - All visitors (including anonymous visitors with no login):
           </label>
            <%= render :partial => "assets/sharing_form_access_type_dropdown", :locals => { :access_type_selector_for_scope => Policy::EVERYONE,
-            :sharing_scope => @sharing_mode, :access_type => @access_mode } -%>
+            :sharing_scope => Policy::EVERYONE, :access_type => (@sharing_mode == Policy::EVERYONE) ? @access_type : Policy::ACCESSIBLE } -%>
            <%= additional_advanced_permissions_included @resource, Policy::EVERYONE -%>
         </p>
 
     </div>
-
-    <!-- some javascript to set the default permissions for new records -->
-    <% if @resource.new_record? && @resource.errors.empty? -%>
-        <script type="text/javascript">
-          $("sharing_scope_<%= Policy::ALL_SYSMO_USERS-%>").checked=true;
-
-        </script>
-    <% end -%>
 
     <% if !disable_advanced_view %>
       <%= link_to_function "Advanced permissions " + expand_image, :class => 'advanced_sharing_link', :style => "display:" + (show_advanced_permissions ? 'none;' : 'block;'), :id =>'advanced_sharing_expand_image' do |page|
