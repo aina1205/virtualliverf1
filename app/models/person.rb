@@ -5,6 +5,9 @@ class Person < ActiveRecord::Base
   acts_as_yellow_pages
   default_scope :order => "last_name, first_name"
 
+  #those that have updated time stamps and avatars appear first. A future enhancement could be to judge activity by last asset updated timestamp
+  named_scope :active, :order=> "avatar_id is null, updated_at DESC"
+
   before_save :first_person_admin
   before_destroy :clean_up_and_assign_permissions
 
@@ -52,7 +55,23 @@ class Person < ActiveRecord::Base
   has_many :favourite_group_memberships, :dependent => :destroy
   has_many :favourite_groups, :through => :favourite_group_memberships
 
-  has_many :work_groups, :through=>:group_memberships, :before_add => proc {|person, wg| person.project_subscriptions.build :project => wg.project unless person.project_subscriptions.detect {|ps| ps.project == wg.project}}
+  has_many :work_groups, :through=>:group_memberships, :before_add => [:subscribe_to_work_group_project, :touch_work_group_project],
+  :before_remove => [:unsubscribe_to_work_group_project, :touch_work_group_project]
+
+  def subscribe_to_work_group_project wg
+    project_subscriptions.build :project => wg.project unless project_subscriptions.detect {|ps| ps.project == wg.project}
+  end
+
+  def unsubscribe_to_work_group_project wg
+    if ps = project_subscriptions.detect {|ps| ps.project == wg.project}
+      project_subscriptions.delete ps
+    end
+  end
+
+  def touch_work_group_project wg
+    wg.project.touch
+  end
+
   has_many :studies, :foreign_key => :person_responsible_id
   has_many :assays,:foreign_key => :owner_id
 
@@ -65,7 +84,7 @@ class Person < ActiveRecord::Base
   has_many :created_publications, :through => :assets_creators, :source => :asset, :source_type => "Publication"
   has_many :created_presentations,:through => :assets_creators,:source=>:asset,:source_type => "Presentation"
 
-  searchable(:ignore_attribute_changes_of=>[:updated_at]) do
+  searchable do
     text :first_name, :last_name,:description, :searchable_tags,:locations, :project_roles
     text :disciplines do
       disciplines.map{|d| d.title}
@@ -83,14 +102,11 @@ class Person < ActiveRecord::Base
   has_many :subscriptions,:dependent => :destroy
   before_create :set_default_subscriptions
 
-  ROLES = %w[admin pal project_manager asset_manager publisher]
+  ROLES = %w[admin pal project_manager asset_manager gatekeeper]
   ROLES_MASK_FOR_ADMIN = 2**ROLES.index('admin')
   ROLES_MASK_FOR_PAL = 2**ROLES.index('pal')
   ROLES_MASK_FOR_PROJECT_MANAGER = 2**ROLES.index('project_manager')
 
-  def self.admins
-
-  end
   ROLES.each do |role|
       eval <<-END_EVAL
             def is_#{role}?
@@ -218,10 +234,18 @@ class Person < ActiveRecord::Base
     work_groups.collect {|wg| wg.institution }.uniq
   end
 
-  def projects
+  def direct_projects
     #updating workgroups doesn't change groupmemberships until you save. And vice versa.
-    @known_projects ||= work_groups.collect {|wg| wg.project }.uniq | group_memberships.collect{|gm| gm.work_group.project}
-    @known_projects.collect{|proj| [proj]+proj.ancestors}.flatten.uniq
+    work_groups.collect {|wg| wg.project }.uniq | group_memberships.collect{|gm| gm.work_group.project}
+  end
+
+  def projects
+    @known_project ||= direct_projects.collect{|proj| [proj] + proj.ancestors}.flatten.uniq
+  end
+
+
+  def projects_and_descendants
+    @project_and_descendants ||= direct_projects.collect{|proj| [proj] + proj.descendants}.flatten.uniq
   end
 
   def member?
@@ -289,7 +313,7 @@ class Person < ActiveRecord::Base
   #(admin or project managers of this person) and (this person does not have a user or not the other admin)
   #themself
   def can_be_edited_by?(subject)
-    subject == nil ? false : (((subject.is_admin? || (!(self.projects & subject.try(:person).try(:projects).to_a).empty? && subject.is_project_manager?)) && (self.user.nil? || !self.is_admin?)) || (subject == self.user))
+    subject == nil ? false : (((subject.is_admin? || subject.is_project_manager?) && (self.user.nil? || !self.is_admin?)) || (subject == self.user))
   end
 
   #admin or project manager can administer themselves and the other people, except the other admins

@@ -229,7 +229,7 @@ class SopsControllerTest < ActionController::TestCase
   test "should create sop with url" do
     assert_difference('Sop.count') do
       assert_difference('ContentBlob.count') do
-        post :create, :sop => valid_sop_with_url, :sharing=>valid_sharing
+        post :create, :sop => valid_sop_with_url.tap {|sop| sop[:external_link] = "1"}, :sharing=>valid_sharing
       end
     end
     assert_redirected_to sop_path(assigns(:sop))
@@ -242,8 +242,8 @@ class SopsControllerTest < ActionController::TestCase
   end
 
   test "should create sop and store with url and store flag" do
-    sop_details             =valid_sop_with_url
-    sop_details[:local_copy]="1"
+    sop_details=valid_sop_with_url
+
     assert_difference('Sop.count') do
       assert_difference('ContentBlob.count') do
         post :create, :sop => sop_details, :sharing=>valid_sharing
@@ -516,13 +516,11 @@ class SopsControllerTest < ActionController::TestCase
   end
 
   test "owner should be able to update sharing" do
-    login_as(:owner_of_editing_for_all_sysmo_users_policy)
-    user = users(:owner_of_editing_for_all_sysmo_users_policy)
-    sop   = sops(:sop_with_all_sysmo_users_policy)
+    user = Factory(:user)
+    login_as(user)
 
-    assert sop.can_edit?(user), "sop should be editable and manageable for this test"
-    assert sop.can_manage?(user), "sop should be editable and manageable for this test"
-    assert_equal Policy::EDITING, sop.policy.access_type, "data file should have an initial policy with access type for editing"
+    sop = Factory :sop, :contributor => User.current_user, :policy => Factory(:policy, :sharing_scope => Policy::ALL_SYSMO_USERS, :access_type => Policy::EDITING)
+
     put :update, :id => sop, :sop => {:title=>"new title"}, :sharing=>{:use_whitelist=>"0", :user_blacklist=>"0", :sharing_scope =>Policy::ALL_SYSMO_USERS, "access_type_#{Policy::ALL_SYSMO_USERS}"=>Policy::NO_ACCESS}
     assert_redirected_to sop_path(sop)
     sop.reload
@@ -533,7 +531,7 @@ class SopsControllerTest < ActionController::TestCase
 
   test "do publish" do
     login_as(:owner_of_my_first_sop)
-    sop=sops(:my_first_sop)
+    sop=sops(:sop_with_project_without_gatekeeper)
     assert sop.can_manage?,"The sop must be manageable for this test to succeed"
     post :publish,:id=>sop
     assert_response :success
@@ -542,7 +540,7 @@ class SopsControllerTest < ActionController::TestCase
   end
 
   test "do not publish if not can_manage?" do
-    sop=sops(:my_first_sop)
+    sop=sops(:sop_with_project_without_gatekeeper)
     assert !sop.can_manage?,"The sop must not be manageable for this test to succeed"
     post :publish,:id=>sop
     assert_redirected_to sop
@@ -552,7 +550,7 @@ class SopsControllerTest < ActionController::TestCase
 
   test "get preview_publish" do
     login_as(:owner_of_my_first_sop)
-    sop=sops(:my_first_sop)
+    sop=sops(:sop_with_project_without_gatekeeper)
     assert sop.can_manage?,"The sop must be manageable for this test to succeed"
     get :preview_publish, :id=>sop
     assert_response :success

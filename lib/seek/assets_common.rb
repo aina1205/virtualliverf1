@@ -4,7 +4,7 @@ module Seek
 
     include Seek::AnnotationCommon
     #required to get the icon_filename_for_key
-    include ImagesHelper    
+    include ImagesHelper
 
 #this is required to initialise the @<model> (e.g. @sop), before re-rendering the :new page 
     def init_asset_for_render params                                                            
@@ -12,8 +12,8 @@ module Seek
         model = c.camelize.constantize                                                            
         symb  =c.to_sym                                                                           
         params[symb].delete 'data_url'                                                            
-        params[symb].delete 'data'                                                                
-        params[symb].delete 'local_copy'                                                          
+        params[symb].delete 'data'
+        params[symb].delete 'external_link'
         obj=model.new params[symb]                                                                
         eval "@#{c.singularize} = obj"                                                            
     end
@@ -24,7 +24,9 @@ module Seek
       code=""
       begin
         if (["http","https"].include?(url.scheme))
-          Net::HTTP.start(url.host, url.port) do |http|
+          http =  Net::HTTP.new(url.host, url.port)
+          http.use_ssl=true if url.scheme=="https"
+          http.start do |http|
             code = http.head(url.request_uri).code        
           end
         elsif (url.scheme=="ftp")        
@@ -88,11 +90,11 @@ module Seek
           page.replace_html "test_url_msg",msg
           page.show 'test_url_msg'
           page.visual_effect :highlight,"test_url_msg"
-          if code=="302" || code=="401"            
-            page['local_copy'].checked=false
-            page['local_copy'].disable            
+          if code=="302" || code=="401"
+            page['external_link'].checked=true
+            page['external_link'].disable
           else
-            page['local_copy'].enable
+            page['external_link'].enable
           end
         end
       end
@@ -119,7 +121,7 @@ module Seek
     
     def download_via_url asset    
       code = url_response_code(asset.content_blob.url)
-      if (["302","401"].include?(code))
+      if (["302","401"].include?(code)) || asset.content_blob.external_link?
         redirect_to(asset.content_blob.url,:target=>"_blank")
       elsif code=="404"
         flash[:error]="This item is referenced at a remote location, which is currently unavailable"
@@ -168,7 +170,8 @@ module Seek
             params[symb][:original_filename] = (params[symb][:data]).original_filename
             @tmp_io_object = params[symb][:data]
           elsif !(params[symb][:data_url]).blank?
-            make_local_copy = (params[symb][:local_copy]=="1")
+            @external_link = (params[symb][:external_link]=="1")
+            make_local_copy = !@external_link
             @data_url=params[symb][:data_url]
             code = url_response_code @data_url
             if (code == "200")
@@ -176,7 +179,7 @@ module Seek
               data_hash = downloader.get_remote_data @data_url,nil,nil,nil,make_local_copy
               
               @tmp_io_object=File.open data_hash[:data_tmp_path],"r" if make_local_copy
-              
+
               params[symb][:content_type] = data_hash[:content_type]
               params[symb][:original_filename] = data_hash[:filename]
             elsif (["302","401"].include?(code))
@@ -220,7 +223,7 @@ module Seek
         end
         params[symb].delete 'data_url'
         params[symb].delete 'data'
-        params[symb].delete 'local_copy' 
+        params[symb].delete 'external_link'
         return true
       end
     end  

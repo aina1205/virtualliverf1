@@ -12,7 +12,7 @@ gem 'rack-openid',"1.1.0"
 gem 'fastercsv', "1.5.1"
 gem 'libxml-ruby',"2.2.2",:require=>"libxml"
 gem 'uuidtools',"2.1.1"
-gem "RedCloth","4.2.3"
+gem "RedCloth","4.2.9"
 gem 'simple-spreadsheet-extractor',"0.10.0"
 gem "rmagick","2.12.2"
 gem "mysql"
@@ -27,8 +27,9 @@ gem "delayed_job","~>2.0.4"
 gem "daemons"
 gem "cancan"
 gem "parallel_tests", :group => :development
-
-
+gem "pry", :group => :development
+gem "pry-doc", :group => :development
+gem 'ruby18_source_location', :group => :development
 
 group :development do
   gem "sqlite3-ruby","1.2.5",:require=>"sqlite3"

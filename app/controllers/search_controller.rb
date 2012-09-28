@@ -42,10 +42,8 @@ class SearchController < ApplicationController
     @search_type = params[:search_type]
     type=@search_type.downcase unless @search_type.nil?
 
-    if @search_query.start_with?("*") || @search_query.start_with?("?")
-      flash.now[:error]="You cannot start a query with a wildcard, so this was removed. You CAN however include wildcards at the end or within the query."
-      @search_query=@search_query[1..-1] while @search_query.start_with?("*") || @search_query.start_with?("?")
-    end
+    @search_query = @search_query.gsub("*","")
+    @search_query = @search_query.gsub("?","")
 
     @search_query.strip!
 
@@ -68,7 +66,7 @@ class SearchController < ApplicationController
             search_result = source.search do |query|
               query.keywords downcase_query
             end.results
-            search_result.sort_by(&:published_date).reverse if source == Publication
+            search_result = search_result.sort_by(&:published_date).reverse if source == Publication
             @results |= search_result
           end
       else
@@ -76,7 +74,7 @@ class SearchController < ApplicationController
            search_result = object.search do |query|
              query.keywords downcase_query
            end.results
-           search_result.sort_by(&:published_date).reverse if object == Publication
+           search_result = search_result.sort_by(&:published_date).reverse if object == Publication
            @results = search_result
       end
     end
