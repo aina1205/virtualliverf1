@@ -18,7 +18,7 @@ class DataFilesController < ApplicationController
   before_filter :find_and_auth, :except => [ :index, :new, :upload_for_tool, :upload_from_email, :create, :request_resource, :preview, :test_asset_url, :update_annotations_ajax]
   before_filter :find_display_asset, :only=>[:show,:download,:explore]
   skip_before_filter :verify_authenticity_token, :only => [:upload_for_tool, :upload_from_email]
-  before_filter :xml_login_only, :only => [:upload_for_tool, :upload_from_email]
+  before_filter :xml_login_only, :only => [:upload_from_email]
 
   #has to come after the other filters
   include Seek::Publishing
@@ -71,9 +71,9 @@ class DataFilesController < ApplicationController
           flash[:notice] = "New version uploaded - now on version #{@data_file.version}"
           if @data_file.is_with_sample?
             bio_samples = @data_file.bio_samples_population
-            unless bio_samples.instance_values["errors"].blank?
-              flash[:error] = "Warning: sample database population is not completely successful.<br/>"
-              flash[:error] << bio_samples.instance_values["errors"].html_safe
+            unless bio_samples.errors.blank?
+              flash[:notice] << "<br/> However, Sample database population failed."
+              flash[:error] = bio_samples.errors.html_safe
             end
           end
         else
@@ -121,7 +121,7 @@ class DataFilesController < ApplicationController
       @data_file = DataFile.new params[:data_file]
 
       #@data_file.content_blob = ContentBlob.new :tmp_io_object => @tmp_io_object, :url=>@data_url
-      Policy.new_for_upload_tool(@data_file, params[:recipient_id])
+      @data_file.policy = Policy.new_for_upload_tool(@data_file, params[:recipient_id])
 
       if @data_file.save
         @data_file.creators = [current_user.person]
@@ -144,7 +144,7 @@ class DataFilesController < ApplicationController
         if handle_data
           @data_file = DataFile.new params[:data_file]
 
-          Policy.new_from_email(@data_file, params[:recipient_ids], params[:cc_ids])
+          @data_file.policy = Policy.new_from_email(@data_file, params[:recipient_ids], params[:cc_ids])
 
           if @data_file.save
             @data_file.creators = [User.current_user.person]
@@ -174,6 +174,7 @@ class DataFilesController < ApplicationController
 
       assay_ids = params[:assay_ids] || []
 
+
         if @data_file.save
           update_annotations @data_file
 
@@ -187,17 +188,24 @@ class DataFilesController < ApplicationController
 
           #Add creators
           AssetsCreator.add_or_update_creator_list(@data_file, params[:creators])
-          if @data_file.parent_name=="assay"
+          if !@data_file.parent_name.blank?
             render :partial=>"assets/back_to_fancy_parent", :locals=>{:child=>@data_file, :parent_name=>@data_file.parent_name,:is_not_fancy=>true}
           else
             respond_to do |format|
               flash[:notice] = 'Data file was successfully uploaded and saved.' if flash.now[:notice].nil?
               #parse the data file if it is with sample data
               if @data_file.is_with_sample
-                bio_samples = @data_file.bio_samples_population
-                unless  bio_samples.instance_values["errors"].blank?
-                  flash[:error] = "Warning: Sample database population is not completely successful.<br/>"
-                  flash[:error] << bio_samples.instance_values["errors"].html_safe
+                bio_samples = @data_file.bio_samples_population params[:institution_id]
+                #@bio_samples = bio_samples
+                #Rails.logger.warn "BIO SAMPLES ::: " + @bio_samples.treatments_text
+                unless  bio_samples.errors.blank?
+                  flash[:notice] << "<br/> However, Sample database population failed."
+                  flash[:error] = bio_samples.errors.html_safe
+                  #respond_to do |format|
+                  #  format.html{
+                  #    render :action => "new"
+                  #  }
+                 # end
                 end
               end
               assay_ids.each do |text|
@@ -207,9 +215,14 @@ class DataFilesController < ApplicationController
                   @assay.relate(@data_file, RelationshipType.find_by_title(r_type))
                 end
               end
-              format.html { redirect_to data_file_path(@data_file) }
+
+                format.html { redirect_to data_file_path(@data_file) }
+
             end
           end
+
+          deliver_request_publish_approval params[:sharing], @data_file
+
         else
           respond_to do |format|
           format.html {
@@ -228,9 +241,11 @@ class DataFilesController < ApplicationController
     # (this will also trigger timestamp update in the corresponding Asset)
     @data_file.last_used_at = Time.now
     @data_file.save_without_timestamping
-    
+
+    #Rails.logger.warn "template in data_files_controller/show : #{params[:parsing_template]}"
+
     respond_to do |format|
-      format.html # show.html.erb
+      format.html #{render :locals => {:template => params[:parsing_template]}}# show.html.erb
       format.xml
       format.svg { render :text=>to_svg(@data_file,params[:deep]=='true',@data_file)}
       format.dot { render :text=>to_dot(@data_file,params[:deep]=='true',@data_file)}
@@ -300,6 +315,8 @@ class DataFilesController < ApplicationController
             AssayAsset.destroy(assay_asset.id)
           end
         end
+        deliver_request_publish_approval params[:sharing], @data_file
+
       else
         format.html {
           render :action => "edit"
@@ -381,16 +398,8 @@ end
     end
   end 
   
-  def clear_population bio_samples
-      specimens = Specimen.find_all_by_title bio_samples.instance_values["specimen_names"].values
-      samples = Sample.find_all_by_title bio_samples.instance_values["sample_names"].values
-      samples.each do |s|
-        s.assays.clear
-        s.destroy
-      end
-      specimens.each &:destroy
-  end
-  
+
+
   protected
 
   def translate_action action

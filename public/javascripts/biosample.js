@@ -69,7 +69,7 @@ function getSelectedStrains() {
     if (strain_table && strain_table.length != 0){
         var selected_strain_rows = fnGetSelected(strain_table);
         for (var i=0; i< selected_strain_rows.length; i++){
-            var id_index = getAttributeColumn(strain_table,"ID");
+            var id_index = getAttributeColumn(strain_table,"Seek ID");
             strain_ids.push(strain_table.fnGetData(selected_strain_rows[i])[id_index+1]);
         }
     }
@@ -81,7 +81,7 @@ function getSelectedSpecimens() {
     if (specimen_table.length != 0){
         var selected_specimen_rows = fnGetSelected(specimen_table);
         for (var i=0; i< selected_specimen_rows.length; i++){
-            var id_index = getAttributeColumn(specimen_table,"ID");
+            var id_index = getAttributeColumn(specimen_table,"Seek ID");
             specimen_ids.push(specimen_table.fnGetData(selected_specimen_rows[i])[id_index+1]);
         }
     }
@@ -267,3 +267,19 @@ function strains_of_selected_organism(organism_id, strain_selection_box_id, stra
         });
 
     }
+
+function scrollToElement(element_id){
+    var element = $(element_id);
+    window.scroll(0,findPos(element)*0.5);
+}
+
+function findPos(obj) {
+	var curtop = 0;
+	if (obj.offsetParent) {
+		do {
+			curtop += obj.offsetTop;
+		} while (obj = obj.offsetParent);
+	return [curtop];
+	}
+}
+

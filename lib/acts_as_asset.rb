@@ -27,6 +27,7 @@ module Acts #:nodoc:
     module ClassMethods
 
       def acts_as_asset
+        attr_accessor :parent_name
         include Seek::Taggable
 
         acts_as_authorized
@@ -66,7 +67,7 @@ module Acts #:nodoc:
 
         searchable do
           text :creators do
-            creators.compact.map(&:name)
+            creators.compact.map(&:name).join(' ')
           end
         end if Seek::Config.solr_enabled
 

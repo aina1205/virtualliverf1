@@ -7,6 +7,7 @@ class Sample < ActiveRecord::Base
   acts_as_scalable
   acts_as_authorized
   acts_as_favouritable
+  acts_as_uniquely_identifiable
 
   attr_accessor :parent_name
   attr_accessor :from_biosamples
@@ -71,7 +72,7 @@ class Sample < ActiveRecord::Base
   searchable do
     text :searchable_terms
     text :creators do
-      creators.compact.map(&:name)
+      creators.compact.map(&:name).join(' ')
     end
   end if Seek::Config.solr_enabled
 

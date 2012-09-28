@@ -8,6 +8,7 @@ class Specimen < ActiveRecord::Base
    acts_as_scalable
   acts_as_authorized
   acts_as_favouritable
+  acts_as_uniquely_identifiable
 
   before_save  :clear_garbage
   attr_accessor :from_biosamples
@@ -102,7 +103,7 @@ class Specimen < ActiveRecord::Base
     end if Seek::Config.is_virtualliver
 
     text :creators do
-      creators.compact.map(&:name)
+      creators.compact.map(&:name).join(' ')
     end
   end if Seek::Config.solr_enabled
 

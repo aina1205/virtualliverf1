@@ -67,19 +67,21 @@
             </p>
         <% end %>
 
-        <%= render :partial => "assets/associate_publication", :locals=>{:f=>f, :resource => @event} -%>
+        <%=  f.fancy_multiselect :publications,:with_new_link=>true,:other_projects_checkbox=>true -%>
         <br/>
         <%= render :partial => "assets/associate_data_file", :locals=>{:f=>f, :resource => @event, :show_relationships=>false} -%>
+        <br/>
+        <%= f.fancy_multiselect :presentations,:with_new_link=>true,:other_projects_checkbox=>true %>
+
 
       </div>
       <p>
         <%
              button_text=@new ? "Create" : "Update"
              disabled_text=@new ? "Creating..." : "Updating..."
-             is_new_file=@new ? true : false
         %>
         <% if @event.can_manage? %>
-            <%= preview_permission_popup_link('event', url_for(:controller => 'policies', :action => 'preview_permissions'), is_new_file, try_block{@event.contributor.id})-%>
+            <%= preview_permission_popup_link(@event)-%>
             <%= f.submit button_text, :id => "event_submit_btn", :onclick => "javascript: clickLink($('preview_permission'));;return(false);" -%>
         <% else %>
             <%= f.submit button_text, :disable_with=>disabled_text, :id => "event_submit_btn", :onclick => "javascript: $('event_submit_btn').form.submit();return(false);" -%>
