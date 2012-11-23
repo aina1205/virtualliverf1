@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20120822134905) do
+ActiveRecord::Schema.define(:version => 20120924145642) do
 
   create_table "activity_logs", :force => true do |t|
     t.string   "action"
@@ -1406,10 +1406,10 @@ ActiveRecord::Schema.define(:version => 20120822134905) do
   end
 
   create_table "text_value_versions", :force => true do |t|
-    t.integer  "text_value_id",                          :null => false
-    t.integer  "version",                                :null => false
+    t.integer  "text_value_id",                            :null => false
+    t.integer  "version",                                  :null => false
     t.integer  "version_creator_id"
-    t.text     "text",               :limit => 16777215, :null => false
+    t.text     "text",               :limit => 2147483647, :null => false
     t.datetime "created_at"
     t.datetime "updated_at"
   end
@@ -1419,7 +1419,7 @@ ActiveRecord::Schema.define(:version => 20120822134905) do
   create_table "text_values", :force => true do |t|
     t.integer  "version"
     t.integer  "version_creator_id"
-    t.text     "text",               :limit => 16777215, :null => false
+    t.text     "text",               :limit => 2147483647, :null => false
     t.datetime "created_at"
     t.datetime "updated_at"
   end
@@ -1462,12 +1462,20 @@ ActiveRecord::Schema.define(:version => 20120822134905) do
   add_index "trash_records", ["trashable_type", "trashable_id"], :name => "index_trash_records_on_trashable_type_and_trashable_id"
 
   create_table "treatments", :force => true do |t|
-    t.string   "substance"
-    t.float    "concentration"
     t.integer  "unit_id"
     t.string   "treatment_protocol"
     t.datetime "created_at"
     t.datetime "updated_at"
+    t.integer  "treatment_type_id"
+    t.float    "start_value"
+    t.float    "end_value"
+    t.float    "standard_deviation"
+    t.text     "comments"
+    t.float    "incubation_time"
+    t.integer  "incubation_time_unit_id"
+    t.integer  "sample_id"
+    t.integer  "specimen_id"
+    t.integer  "compound_id"
   end
 
   create_table "units", :force => true do |t|
