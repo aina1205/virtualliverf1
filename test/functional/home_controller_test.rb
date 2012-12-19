@@ -101,14 +101,15 @@ class HomeControllerTest < ActionController::TestCase
 
   test "should hide forum tab for logged in user" do
     #this test may break if we re-enable forums - which is currently under question. If it does and we have re-enabled just change :count=>1
-    login_as(:quentin)
-    get :index
-    assert_response :success
-    assert_select 'a',:text=>/Forum/,:count=>1
+    as_not_virtualliver do
+      login_as(:quentin)
+      get :index
+      assert_response :success
+      assert_select 'a', :text => /Forum/, :count => 0
+    end
   end
 
-unless  Seek::Config.is_virtualliver
-     test "should display home description" do
+  test "should display home description" do
     Seek::Config.home_description="Blah blah blah - http://www.google.com"
     logout
 
@@ -196,8 +197,8 @@ unless  Seek::Config.is_virtualliver
     assert_select 'div#project_news ul>li', 5
     assert_select 'div#community_news ul>li', 7
   end
-else
-   test "ids of scales list should be the same as scales defined in Seek::Config.scales" do
+
+  test "ids of scales list should be the same as scales defined in Seek::Config.scales" do
      get :index
      assert_response :success
      scales = ["all"]
@@ -208,8 +209,6 @@ else
        end
      end
    end
-
-end
 
   test 'should show recently added and downloaded items with the filter can_view?' do
     login_as(:aaron)
