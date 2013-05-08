@@ -1,16 +1,16 @@
 require 'test_helper'
 
 class SendPeriodicEmailsJobTest < ActiveSupport::TestCase
-  fixtures :all
 
   def setup
+    User.current_user = Factory(:user)
     @val = Seek::Config.email_enabled
     Seek::Config.email_enabled=true
-    Delayed::Job.destroy_all
+    Delayed::Job.delete_all
   end
 
   def teardown
-    Delayed::Job.destroy_all
+    Delayed::Job.delete_all
     Seek::Config.email_enabled=@val
   end
 
@@ -72,6 +72,34 @@ class SendPeriodicEmailsJobTest < ActiveSupport::TestCase
 
   end
 
+  test 'activity_logs_since' do
+    count = 2
+    i = 0
+    activity_loggable = Factory(:data_file)
+    culprit =  activity_loggable.contributor
+    while i < count do
+      Factory(:activity_log, :action => 'create', :activity_loggable => activity_loggable, :culprit => culprit)
+      Factory(:activity_log, :action => 'update', :activity_loggable => activity_loggable, :culprit => culprit)
+      Factory(:activity_log, :action => 'show', :activity_loggable => activity_loggable, :culprit => culprit)
+      Factory(:activity_log, :action => 'destroy', :activity_loggable => activity_loggable, :culprit => culprit)
+      Factory(:activity_log, :action => 'download', :activity_loggable => activity_loggable, :culprit => culprit)
+      #session create
+      Factory(:activity_log, :action => 'create', :controller_name => 'sessions', :culprit => culprit)
+
+      i += 1
+    end
+    #only create and update actions are filtered
+    #creation of session is excluded
+    assert_equal 2*count, SendPeriodicEmailsJob.new('daily').activity_logs_since(Time.now.yesterday.utc).count
+    assert_equal 2*count, SendPeriodicEmailsJob.new('weekly').activity_logs_since(7.days.ago).count
+    assert_equal 2*count, SendPeriodicEmailsJob.new('monthly').activity_logs_since(1.month.ago).count
+
+    Factory(:activity_log, :action => 'create', :activity_loggable => activity_loggable, :culprit => culprit, :created_at => 2.days.ago)
+    assert_equal 2*count, SendPeriodicEmailsJob.new('daily').activity_logs_since(Time.now.yesterday.utc).count
+    assert_equal (2*count + 1), SendPeriodicEmailsJob.new('weekly').activity_logs_since(7.days.ago).count
+    assert_equal (2*count + 1), SendPeriodicEmailsJob.new('monthly').activity_logs_since(1.month.ago).count
+  end
+
   test "create job" do
       assert_equal 0,Delayed::Job.count
       assert_difference("Delayed::Job.count",1) do
@@ -81,7 +109,7 @@ class SendPeriodicEmailsJobTest < ActiveSupport::TestCase
       assert_equal 1,Delayed::Job.count
 
       job = Delayed::Job.first
-      assert_equal 1,job.priority
+      assert_equal 3,job.priority
 
       assert_no_difference("Delayed::Job.count") do
         SendPeriodicEmailsJob.create_job('daily', Time.now)
@@ -109,7 +137,7 @@ class SendPeriodicEmailsJobTest < ActiveSupport::TestCase
 
   test "creation of follow on job after perform" do
     #checks that a new job is created when perform is comples despite the current one being locked
-    Delayed::Job.destroy_all
+
     person1 = Factory(:person)
     job = nil
     assert_difference("Delayed::Job.count",1) do
@@ -124,7 +152,7 @@ class SendPeriodicEmailsJobTest < ActiveSupport::TestCase
 
 
   test "perform" do
-    Delayed::Job.destroy_all
+    Delayed::Job.delete_all
     person1 = Factory(:person)
     person2 = Factory(:person)
     person3 = Factory(:person)
@@ -160,7 +188,7 @@ class SendPeriodicEmailsJobTest < ActiveSupport::TestCase
   end
 
   test "perform ignores unwanted actions" do
-    Delayed::Job.destroy_all
+    Delayed::Job.delete_all
     person1 = Factory(:person)
     person2 = Factory(:person)
     person3 = Factory(:person)
@@ -177,11 +205,12 @@ class SendPeriodicEmailsJobTest < ActiveSupport::TestCase
     SendPeriodicEmailsJob.create_job('weekly', 15.minutes.from_now)
     SendPeriodicEmailsJob.create_job('monthly', 15.minutes.from_now)
 
-    assert_emails 0 do
+    user = Factory :user
 
-      Factory :activity_log,:activity_loggable => sop, :culprit => Factory(:user), :action => 'show'
-      Factory :activity_log,:activity_loggable => sop, :culprit => Factory(:user), :action => 'download'
-      Factory :activity_log,:activity_loggable => sop, :culprit => Factory(:user), :action => 'destroy'
+    assert_emails 0 do
+      Factory :activity_log,:activity_loggable => sop, :culprit => user, :action => 'show'
+      Factory :activity_log,:activity_loggable => sop, :culprit => user, :action => 'download'
+      Factory :activity_log,:activity_loggable => sop, :culprit => user, :action => 'destroy'
 
       SendPeriodicEmailsJob.new('daily').perform
       SendPeriodicEmailsJob.new('weekly').perform
@@ -190,12 +219,12 @@ class SendPeriodicEmailsJobTest < ActiveSupport::TestCase
   end
 
   test "perform2" do
-    Delayed::Job.destroy_all
+    Delayed::Job.delete_all
 
     person1 = Factory :person
     person2 = Factory :person
-    person3 = Factory :person, :group_memberships=>person2.group_memberships
-    person4 = Factory :person, :group_memberships=>person2.group_memberships
+    person3 = Factory :person, :work_groups=>person2.work_groups
+    person4 = Factory :person, :work_groups=>person2.work_groups
     person4.notifiee_info.receive_notifications=false
     person4.notifiee_info.save!
     project1 = person1.projects.first
@@ -222,11 +251,12 @@ class SendPeriodicEmailsJobTest < ActiveSupport::TestCase
 
     ps.each {|p| ProjectSubscriptionJob.new(p.id).perform}
 
+    user = Factory :user
     disable_authorization_checks do
-      Factory :activity_log, :activity_loggable=>sop, :culprit=>Factory(:user),:action=>"update"
-      Factory :activity_log, :activity_loggable=>model, :culprit=>Factory(:user),:action=>"update"
-      Factory :activity_log, :activity_loggable=>data_file, :culprit=>Factory(:user),:action=>"update"
-      Factory :activity_log, :activity_loggable=>data_file2, :culprit=>Factory(:user),:action=>"update"
+      Factory :activity_log, :activity_loggable=>sop, :culprit=>user,:action=>"update"
+      Factory :activity_log, :activity_loggable=>model, :culprit=>user,:action=>"update"
+      Factory :activity_log, :activity_loggable=>data_file, :culprit=>user,:action=>"update"
+      Factory :activity_log, :activity_loggable=>data_file2, :culprit=>user,:action=>"update"
     end
 
     assert_emails 1 do

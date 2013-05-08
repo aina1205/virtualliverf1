@@ -40,7 +40,7 @@
     </p>
 
     <p>
-      <%= f.label "Person responsible" %><br/>
+      <%= f.label "Contributor" %><br/>
       <div id="person_responsible_collection">
         <% people = @study.investigation ? @study.investigation.projects.collect(&:people).flatten : [] -%>
         <%= render :partial=>"studies/person_responsible_list",:locals=>{:people=>people} -%>
@@ -49,7 +49,7 @@
 
   </div>
   <p>
-      <%= f.fancy_multiselect :scales,{:possibilities=>sort_scales(Scale.all)}-%>
+      <%= f.fancy_multiselect :scales,{:possibilities=>sort_scales(Scale.all)} if @study.is_scalable?-%>
    </p>
   <p>
     <%= render :partial=>"assets/sharing_form" if @study.can_manage? -%>

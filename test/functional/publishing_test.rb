@@ -65,7 +65,7 @@ class PublishingTest < ActionController::TestCase
     assert_select "li.type_and_title",:text=>/Data file/,:count=>1 do
       assert_select "a[href=?]",data_file_path(other_df),:text=>/#{other_df.title}/
     end
-    assert_select "li.secondary",:text=>/Notify owner/ do
+    assert_select "li.secondary",:text=>/Notify contributor/ do
       assert_select "input[checked='checked'][type='checkbox'][id=?]","publish_DataFile_#{other_df.id}"
     end
 
@@ -211,7 +211,7 @@ class PublishingTest < ActionController::TestCase
 
     assert_select "ul#notified" do
       assert_select "li",:text=>/Study: #{study.title}/,:count=>1
-      assert_select "li",:text=>/Assay: #{assay.title}/,:count=>1
+      assert_select "li",:text=>/Modelling analysis: #{assay.title}/,:count=>1
       assert_select "li",:text=>/Data file: #{df1.title}/,:count=>1
       
       assert_select "li > a[href=?]",person_path(personB),:text=>/#{personB.name}/,:count=>3
@@ -405,6 +405,9 @@ class PublishingTest < ActionController::TestCase
 
         sop = sops(:sop_with_fully_public_policy)
         assert_equal Policy::EVERYONE, sop.policy.sharing_scope
+
+      #create a published log for the published sop
+      ResourcePublishLog.create(:resource => sop, :culprit => User.current_user, :publish_state => ResourcePublishLog::PUBLISHED)
 
         assert_difference ('ResourcePublishLog.count') do
           put :update, :id => sop.id, :sharing => {:sharing_scope => Policy::PRIVATE, "access_type_#{Policy::PRIVATE}" => Policy::NO_ACCESS}

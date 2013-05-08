@@ -11,7 +11,10 @@ config.whiny_nils = true
 
 # Show full error reports and disable caching
 config.action_controller.consider_all_requests_local = true
-config.action_controller.perform_caching             = false
+#config.action_controller.perform_caching             = false
+
+config.action_controller.perform_caching             = true
+config.action_controller.cache_store = [:file_store, "#{RAILS_ROOT}/tmp/cache"]
 
 # Disable request forgery protection in test environment
 config.action_controller.allow_forgery_protection    = false
@@ -21,4 +24,5 @@ config.action_controller.allow_forgery_protection    = false
 # ActionMailer::Base.deliveries array.
 config.action_mailer.delivery_method = :test
 
+#config.cache_store = [:file_store, "/tmp/seek-test-cache"]
 config.cache_store = :memory_store

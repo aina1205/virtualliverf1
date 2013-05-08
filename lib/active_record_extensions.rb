@@ -44,6 +44,9 @@ module ActiveRecordExtensions
 
       class_alias_method_chain :accepts_nested_attributes_for, :allow_destroy_bugfix
 
+      def self.is_hierarchical?
+           include? ActsAsCachedTree if defined? ActsAsCachedTree
+      end
     end
 
 
@@ -77,7 +80,7 @@ module ActiveRecordExtensions
   end
 
   def is_downloadable?
-    respond_to?(:content_blob)
+    (respond_to?(:content_blob) || respond_to?(:content_blobs))
   end
 
   def is_publishable?

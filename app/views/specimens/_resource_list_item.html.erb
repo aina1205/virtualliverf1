@@ -3,17 +3,18 @@
 <div class="list_item_left_column">
   <%= list_item_authorized_attribute "Uploader", resource.contributor.try(:person) %>
   <%= list_item_authorized_list resource.creators, "Responsible scientist" -%>
-  <%= list_item_attribute "Other Creator(s)", resource.other_creators.blank? ? "<span class='none_text'>No Other Creator(s)</span>" : resource.other_creators-%>
+  <%= list_item_attribute "Other Contributor(s)", resource.other_creators.blank? ? "<span class='none_text'>No Other Contributor(s)</span>" : resource.other_creators-%>
 </div>
 
 <div class="list_item_right_column">
 
   <%= render :partial => 'projects/show_project_relationship', :locals => {:resource => resource, :list_item => true}%>
   <%= list_item_organism "Organism",resource.organism,resource.strain,resource.culture_growth_type %>
-  <%= list_item_authorized_list resource.sops, "SOPs", true, 50, true %>
+  <%= list_item_authorized_list resource.sop_masters.map(&:sop), "SOPs", true, 50, true %>
 
 </div>
 <div class="list_item_whole_width">
   <%= list_item_scale_list resource %>
   <%= list_item_description resource.description %>
+  <%= list_item_timestamp resource %>
 </div>

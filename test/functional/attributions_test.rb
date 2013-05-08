@@ -45,7 +45,7 @@ class AttributionsTest < ActionController::TestCase
     # update the SOP, but supply no data about attributions - these should be removed
     assert_no_difference('Sop.count') do
       assert_difference('Relationship.count', -1) do
-        put :update, :id => assigns(:sop).id, :sop => {:title => "edited_title",:projects=>[projects(:myexperiment_project)]}, :sharing => valid_sharing,:attributions=>nil # NB! no attributions supplied - should remove if any existed for the sop
+        put :update, :id => assigns(:sop).id, :sop => {:title => "edited_title",:projects=>[projects(:myexperiment_project)]}, :sharing => valid_sharing,:attributions=>[] # NB! no attributions supplied - should remove if any existed for the sop
       end
     end
     assert_redirected_to sop_path(assigns(:sop))
@@ -137,6 +137,37 @@ class AttributionsTest < ActionController::TestCase
                                                           :predicate => Relationship::ATTRIBUTED_TO, :object_id => 44,
                                                           :object_type => "Sop" } )
     assert (!new_attr.nil?), "new attribution should't be nil - nil means that it wasn't created"
+  end
+
+  test "should display attributions" do
+    u = Factory :user
+    login_as(u)
+    sop1 = Factory :sop,:policy=>(Factory :public_policy),:contributor=>u
+    sop2 = Factory :sop,:policy=>(Factory :public_policy),:contributor=>u
+    sop3 = Factory :sop,:policy=>(Factory :public_policy),:contributor=>u
+    Relationship.create :subject=>sop1,:object=>sop2,:predicate=>Relationship::ATTRIBUTED_TO
+    sop1.reload
+    sop2.reload
+    assert_equal [sop2],sop1.attributions.collect{|r| r.object}
+    assert_equal [sop2],sop1.attributions_objects
+
+    get :show,:id=>sop1
+    assert_response :success
+    assert_select "div.contribution_section_box" do
+      assert_select "p.heading",:text=>/Attributions/
+      assert_select "ul.list" do
+        assert_select "li" do
+          assert_select "a[href=?]",sop_path(sop2),:text=>/#{sop2.title}/
+        end
+      end
+    end
+
+    get :show,:id=>sop3
+    assert_response :success
+    assert_select "div.contribution_section_box" do
+      assert_select "p.heading",:text=>/Attributions/
+      assert_select "p.none_text",:text=>"None"
+    end
   end
 
 end

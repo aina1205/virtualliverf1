@@ -1,11 +1,13 @@
 module Seek
   class ContentStats
+
+    AUTHORISED_TYPES=[Investigation,Study,Assay,DataFile,Model,Sop,Presentation]
     
     class ProjectStats
-      attr_accessor :project,:sops,:data_files,:models,:publications,:people,:assays,:studies,:investigations, :user
+      attr_accessor :project,:sops,:data_files,:models,:publications,:people,:assays,:studies,:investigations,:presentations, :user
       
-      def initialize
-        @user=User.first
+      def initialize user
+        @user=user
       end
       
       def data_files_size
@@ -19,29 +21,26 @@ module Seek
       def models_size
         assets_size models
       end
-      
-      def visible_data_files
-        authorised_assets data_files,"view"
-      end
-      
-      def visible_sops
-        authorised_assets sops,"view"
-      end
-      
-      def visible_models
-        authorised_assets models,"view"
-      end
-      
-      def accessible_data_files
-        authorised_assets data_files,"download"
-      end
-      
-      def accessible_sops
-        authorised_assets sops,"download"
-      end
-      
-      def accessible_models
-        authorised_assets models,"download"
+
+      AUTHORISED_TYPES.each do |type|
+        type_class_name = type.name
+        type_str=type_class_name.underscore.pluralize
+        define_method "visible_#{type_str}" do |projects|
+          authorised_assets type_class_name,"view",projects, @user
+        end
+
+        define_method "accessible_#{type_str}" do |projects|
+          authorised_assets type_class_name,"download",projects, @user
+        end
+
+        define_method "publicly_visible_#{type_str}" do |projects|
+          authorised_assets type_class_name,"view",projects, nil
+        end
+
+        define_method "publicly_accessible_#{type_str}" do |projects|
+          authorised_assets type_class_name,"download",projects, nil
+        end
+
       end
       
       def registered_people
@@ -50,8 +49,8 @@ module Seek
       
       private
 
-      def authorised_assets assets,action
-        assets.select{|asset| asset.can_perform? action, @user}
+      def authorised_assets asset_type,action, projects, user
+        asset_type.constantize.all_authorized_for(action, user,projects)
       end
       
       def assets_size assets
@@ -61,22 +60,21 @@ module Seek
         end
         return size
       end
-    end  
+    end
 
-    def self.generate    
-      result=[]    
+    def self.generate user
+      result=[]
       Project.all.each do |project|
-        project_stats=ProjectStats.new
+        project_stats=ProjectStats.new(user)
         project_stats.project=project
-        project_stats.sops=project.sops
-        project_stats.models=project.models
-        project_stats.data_files=project.data_files
-        project_stats.publications=project.publications
         project_stats.people=project.people
-        project_stats.assays=project.assays
-        project_stats.studies=project.studies
-        project_stats.investigations=project.investigations
-        result << project_stats           
+        AUTHORISED_TYPES.each do |type|
+          type_str=type.name.underscore.pluralize
+          project_stats.send(type_str+"=",project.send(type_str))
+        end
+
+        project_stats.publications=project.publications
+        result << project_stats
       end
       return result
     end

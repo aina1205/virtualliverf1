@@ -2,9 +2,14 @@ require 'digest/md5'
 require 'net/http'
 require 'open-uri'
 require 'tmpdir'
+require 'docsplit'
+require 'rest-client'
 
 class ContentBlob < ActiveRecord::Base
 
+  include Seek::ContentTypeDetection
+  include Seek::PdfExtraction
+  include Seek::MimeTypes
 
   belongs_to :asset, :polymorphic => true
 
@@ -27,7 +32,17 @@ class ContentBlob < ActiveRecord::Base
   before_save :calculate_md5
 
   before_save :check_version
+
+  before_create :check_url_content_type  unless Seek::Config.is_virtualliver
+
   has_many :worksheets, :dependent => :destroy
+
+
+  # For VL, asset uploaded with url can be manually marked as an external link or not, and NO asset will be stored in both cases.
+  #User can go to the url if it is an external link, otherwise use can directly download the asset from that url.
+  #While for SysMO, asset uploaded with url with text/html format(checked with call_back functions before content_blob is created)) is tagged to be is_webpage, and asset will be stored if user ticks make_a_copy checkbox
+  # this should be removed when external_link is merged with is_webpage in db schema
+  alias_attribute :is_webpage, :external_link if Seek::Config.is_virtualliver
 
   def spreadsheet_annotations
     worksheets.collect {|w| w.cell_ranges.collect {|c| c.annotations}}.flatten
@@ -40,6 +55,10 @@ class ContentBlob < ActiveRecord::Base
     else
       nil
     end
+  end
+
+  def human_content_type
+    mime_nice_name(content_type)
   end
   
   def check_version
@@ -89,18 +108,31 @@ class ContentBlob < ActiveRecord::Base
   def file_exists?
     File.exist?(filepath)
   end
-  
-  def filepath uuid_to_use=nil
+
+  def storage_filename format="dat",uuid_to_use=nil
     uuid_to_use ||= uuid
-    if RAILS_ENV == "test"
-      path = "#{Dir::tmpdir}/seek_content_blobs"
+    "#{uuid_to_use}.#{format}"
+  end
+
+  def filepath format='dat',uuid_to_use=nil
+    return "#{storage_directory}/#{storage_filename(format,uuid_to_use)}"
+  end
+
+  def storage_directory
+    if Rails.env == "test"
+      path = ContentBlob.test_storage_location
     else
-      path = "#{RAILS_ROOT}/#{DATA_STORAGE_PATH}/#{RAILS_ENV}"
+      path = "#{Rails.root}/#{DATA_STORAGE_PATH}/#{Rails.env}"
     end
     FileUtils.mkdir_p(path)
-    return "#{path}/#{uuid_to_use}.dat"
+    return path
   end
-  
+
+  #The location contentblobs are stored when Rails.env='test' - this is only used for unit/functional testing purposes.
+  def self.test_storage_location
+    "#{Rails.root}/tmp/test_content_blobs"
+  end
+
   def dump_data_to_file        
     raise Exception.new("You cannot define both :data content and a :tmp_io_object") unless @data.nil? || @tmp_io_object.nil?
     check_uuid
@@ -110,8 +142,31 @@ class ContentBlob < ActiveRecord::Base
       dump_data_object_to_file
     end    
   end
-  
+
+
+
   private
+
+  def check_url_content_type
+    unless url.nil?
+      begin
+        response = RestClient.head url
+        type = response.headers[:content_type] || ""
+
+        #strip out the charset, e.g for content-type  "text/html; charset=utf-8"
+        type = type.gsub(/;.*/,"").strip
+        if type == "text/html"
+          self.is_webpage = true
+          self.content_type = type
+        end
+
+        self.content_type = type if self.human_content_type == "Unknown file type"
+      rescue Exception=>e
+        self.is_webpage = false
+        Rails.logger.warn("There was a problem reading the headers for the URL of the content blob = #{self.url}")
+      end
+    end
+  end
   
   def dump_data_object_to_file
     data_to_save = @data

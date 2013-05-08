@@ -14,6 +14,7 @@ class PeopleController < ApplicationController
   skip_before_filter :profile_for_login_required,:only=>[:select,:userless_project_selected_ajax,:create]
 
   cache_sweeper :people_sweeper,:only=>[:update,:create,:destroy]
+  include Seek::BreadCrumbs
 
   def auto_complete_for_tools_name
     render :json => Person.tool_counts.map(&:name).to_json
@@ -173,7 +174,12 @@ class PeopleController < ApplicationController
           format.html { redirect_to :controller => "users", :action => "activation_required" }
         else
           flash[:notice] = 'Person was successfully created.'
-          format.html { redirect_to(@person) }
+          if @person.only_first_admin_person?
+            format.html { redirect_to registration_form_path(:during_setup=>"true") }
+          else
+            format.html { redirect_to(@person) }
+          end
+
           format.xml { render :xml => @person, :status => :created, :location => @person }
         end
 
@@ -205,6 +211,7 @@ class PeopleController < ApplicationController
     respond_to do |format|
       if @person.update_attributes(params[:person]) && set_group_membership_project_role_ids(@person,params)
         @person.save #this seems to be required to get the tags to be set correctly - update_attributes alone doesn't [SYSMO-158]
+        @person.touch #this makes sure any caches based on the cache key are invalided where the person would not normally be updated, such as changing disciplines or tags
         flash[:notice] = 'Person was successfully updated.'
         format.html { redirect_to(@person) }
         format.xml  { head :ok }
@@ -383,7 +390,6 @@ class PeopleController < ApplicationController
   end
 
   def do_projects_belong_to_project_manager_projects
-    if !Seek::Config.is_virtualliver
       if (params[:person] and params[:person][:work_group_ids])
         if User.project_manager_logged_in? && !User.admin_logged_in?
           projects = []
@@ -392,7 +398,7 @@ class PeopleController < ApplicationController
             project = work_group.try(:project)
             projects << project unless project.nil?
           end
-        project_manager_projects = current_user.person.projects_and_descendants
+        project_manager_projects = Project.is_hierarchical?? current_user.person.projects_and_descendants : current_user.person.projects
           flag = true
           projects.each do |project|
             flag = false if !project_manager_projects.include? project
@@ -402,7 +408,6 @@ class PeopleController < ApplicationController
           end
           return flag
         end
-      end
     end
   end
 

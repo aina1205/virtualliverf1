@@ -24,12 +24,14 @@ require 'assets_common_extension'
 require 'acts_as_cached_tree'
 require 'sunspot_rails'
 require 'cancan'
+require 'in_place_editing'
 require 'strategic_eager_loading'
-
-
+require 'seek/breadcrumbs'
+require 'string_extension'
+require 'seek/project_hierarchies'
 GLOBAL_PASSPHRASE="ohx0ipuk2baiXah" unless defined? GLOBAL_PASSPHRASE
 
-ASSET_ORDER                = ['Person', 'Project', 'Institution', 'Investigation', 'Study', 'Assay', 'Sample','Specimen','DataFile', 'Model', 'Sop', 'Publication', 'Presentation','SavedSearch', 'Organism', 'Event']
+ASSET_ORDER                = ['Person', 'Project', 'Institution', 'Investigation', 'Study', 'Assay', 'Sample','Specimen','Strain', 'DataFile', 'Model', 'Sop', 'Publication', 'Presentation','SavedSearch', 'Organism', 'Event']
 
 PORTER_SECRET = "" unless defined? PORTER_SECRET
 
@@ -47,9 +49,16 @@ Annotations::Config.versioning_enabled = false
 CELL_CULTURE_OR_SPECIMEN = Seek::Config.is_virtualliver ? 'specimen' : 'cell culture'
 ENV['LANG'] = 'en_US.UTF-8'
 
+
 if ActiveRecord::Base.connection.table_exists? 'delayed_jobs'
   SendPeriodicEmailsJob.create_initial_jobs
 end
 
-
-ENV['LANG'] = 'en_US.UTF-8'
+ConvertOffice::ConvertOfficeConfig.options =
+{
+    :java_bin=>"java",
+    :soffice_port=>8100,
+    :nailgun=>false,
+    :verbose=>false,
+    :asynchronous=>false
+}

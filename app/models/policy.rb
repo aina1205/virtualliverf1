@@ -26,8 +26,6 @@ class Policy < ActiveRecord::Base
 
   alias_attribute :title, :name
 
-  default_scope :include=>:permissions
-
   after_save :queue_update_auth_table
 
   def queue_update_auth_table
@@ -129,7 +127,7 @@ class Policy < ActiveRecord::Base
         end
 
         #if share with your project is chosen
-        if (sharing[:sharing_scope].to_i == Policy::ALL_SYSMO_USERS) and !projects.blank?
+        if (sharing[:sharing_scope].to_i == Policy::ALL_SYSMO_USERS) and !projects.map(&:id).compact.blank?
           #add Project to contributor_type
           contributor_types << "Project" if !contributor_types.include? "Project"
           #add one hash {project.id => {"access_type" => sharing[:your_proj_access_type].to_i}} to new_permission_data
@@ -268,7 +266,7 @@ class Policy < ActiveRecord::Base
   end
 
   def private?
-    sharing_scope == Policy::PRIVATE and permissions.empty?
+    sharing_scope == Policy::PRIVATE && permissions.empty?
   end
 
   def public?

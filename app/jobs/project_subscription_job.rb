@@ -1,16 +1,13 @@
 class ProjectSubscriptionJob < Struct.new(:project_subscription_id)
 
+  DEFAULT_PRIORITY=2
+
   def perform
     ps = ProjectSubscription.find_by_id(project_subscription_id)
     if ps
       project = ps.project
       all_in_project(project).each do |item|
         item.subscriptions << Subscription.new(:person => ps.person, :project_subscription_id => project_subscription_id) unless item.subscribed?(ps.person)
-      end
-      project.ancestors.each do |parent_project|
-        all_in_project(parent_project).each do |item|
-          item.subscriptions << Subscription.new(:person => ps.person) unless item.subscribed?(ps.person)
-        end
       end
     end
   end
@@ -19,10 +16,11 @@ class ProjectSubscriptionJob < Struct.new(:project_subscription_id)
     Delayed::Job.find(:first, :conditions => ['handler = ? AND locked_at IS ? AND failed_at IS ?', ProjectSubscriptionJob.new(project_subscription_id).to_yaml, nil, nil]) != nil
   end
 
-  def self.create_job project_subscription_id, t=15.seconds.from_now, priority=0
+  def self.create_job project_subscription_id, t=15.seconds.from_now, priority=DEFAULT_PRIORITY
     Delayed::Job.enqueue(ProjectSubscriptionJob.new(project_subscription_id), priority, t) unless exists? project_subscription_id
   end
 
+  #all direct assets in the project, but related_#{asset_type} includes also assets from descendants
   def all_in_project project
     assets = []
     assets |= project.studies
@@ -36,6 +34,7 @@ class ProjectSubscriptionJob < Struct.new(:project_subscription_id)
       assets_projects_table = ["#{type.underscore.pluralize}", 'projects'].sort.join('_')
       assets_for_project project, type, assets_projects_table
     end.flatten.uniq
+    assets
     assets
   end
 

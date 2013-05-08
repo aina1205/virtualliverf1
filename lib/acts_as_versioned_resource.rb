@@ -39,10 +39,10 @@ module Acts #:nodoc:
     module InstanceMethods
 
       def content_type
-          self.content_blob.content_type
+          self.content_blob.content_type if self.respond_to?(:content_blob)
       end
       def original_filename
-          self.content_blob.original_filename
+          self.content_blob.original_filename  if self.respond_to?(:content_blob)
       end
       # this method will take attributions' association and return a collection of resources,
       # to which the current resource is attributed
@@ -65,6 +65,13 @@ module Acts #:nodoc:
 
       def scales
         self.parent.scales
+
+      end 
+      def contains_downloadable_items?
+        blobs = []
+        blobs << self.content_blob if self.respond_to?(:content_blob)
+        blobs = blobs | self.content_blobs if self.respond_to?(:content_blobs)
+        !blobs.compact.select { |blob| !blob.is_webpage? }.empty?
       end
 
       #returns a list of the people that can manage this file
@@ -98,6 +105,10 @@ module Acts #:nodoc:
         self.parent.assets_creators
       end
 
+      def contributing_user
+        self.parent.try(:contributing_user)
+      end
+
       def is_asset?
         self.parent.is_asset?
       end
@@ -125,6 +136,7 @@ module Acts #:nodoc:
       def annotations
         parent.annotations if parent.respond_to? :annotations
       end
+
     end
   end
 end

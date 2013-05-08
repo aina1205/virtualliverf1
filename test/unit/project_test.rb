@@ -25,6 +25,17 @@ class ProjectTest < ActiveSupport::TestCase
     assert p.defines_own_avatar?
   end
 
+  test "has_member" do
+    person = Factory :person
+    project = person.projects.first
+    other_person = Factory :person
+    assert project.has_member?(person)
+    assert project.has_member?(person.user)
+    assert !project.has_member?(other_person)
+    assert !project.has_member?(other_person.user)
+    assert !project.has_member?(nil)
+  end
+
   def test_ordered_by_name
     assert Project.find(:all).sort_by {|p| p.name.downcase} == Project.find(:all) || Project.all.sort_by {|p| p.name} == Project.all
   end
@@ -230,42 +241,6 @@ class ProjectTest < ActiveSupport::TestCase
     assert_equal x.uuid, uuid
   end
 
-  test "set parent" do
-    parent_proj =  Factory(:project,:title=>"test parent")
-    proj = Factory(:project,:parent_id=>parent_proj.id)
-    assert_equal proj.parent,parent_proj
-    assert true, parent_proj.descendants.include?(proj)
-    parent_proj_changed = Factory(:project,:title=>"changed test parent")
-    proj.parent = parent_proj_changed
-    proj.save!
 
-    assert_equal "changed test parent",proj.parent.name
-
-  end
-
-  test "parent project have institutions of children" do
-      institutions =  [ Factory(:institution), Factory(:institution)]
-      parent_proj = Factory :project,:name=>"parent proj"
-      project = Factory :project,:parent => parent_proj
-      project.institutions = institutions
-      project.save!
-
-      institutions.each do |ins|
-        assert true, parent_proj.institutions.include?(ins)
-      end
-  end
-
-  test "related resource to parent project" do
-    parent_proj = Factory :project
-    proj = Factory :project,:parent=>parent_proj
-
-    Project::RELATED_RESOURCE_TYPES.each do |type|
-      proj.send "#{type.underscore.pluralize}=".to_sym,[Factory type.underscore.to_sym] unless ["Study","Assay"].include?(type)
-
-      proj.send("#{type.underscore.pluralize}".to_sym).each do |resource|
-        assert true, parent_proj.send("related_#{type.underscore.pluralize}".to_sym).include?(resource)
-      end
-    end
-  end
 
 end

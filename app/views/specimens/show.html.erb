@@ -1,5 +1,7 @@
 <% truncate_length_for_boxes = 22 -%>
 
+<%= render :partial => "layouts/item_title", :locals=>{:item=>@specimen} %>
+
 <ul class="sectionIcons">
   <%= render :partial => "subscriptions/subscribe", :locals => {:object => @specimen} %>
   <% if @specimen.can_manage? %>
@@ -16,8 +18,6 @@
   <% end %>
 </ul>
 
-<%= render :partial => "layouts/item_title", :locals=>{:item=>@specimen} %>
-
 <div class="show_basic">
 
   <div style="clear:both">
@@ -27,13 +27,15 @@
       <%= render :partial => "samples/sample_specimen_details", :object => @specimen %>
     </div>
     <br/>
-    <%= render :partial => "assets/resource_main_content_right", :locals => {:resource => @specimen, :title => 'Owner and creators'} %>
+    <%= render :partial => "assets/resource_main_content_right", :locals => {:resource => @specimen, :title => 'Contributor and creators'} %>
   </div>
 
 
   <div style="clear:both">
     <br/>
     <%= render :partial=>"layouts/items_related_to", :object => @specimen %>
+    <br/>
+    <%= render :partial => "layouts/usage_info", :locals => { :resource => @specimen } -%>
   </div>
 
 </div>

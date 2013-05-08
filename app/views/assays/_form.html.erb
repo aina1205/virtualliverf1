@@ -43,9 +43,9 @@
     <% investigations.each do |i| %>
         <% studies = i.studies.select &:can_edit? %>
         <% unless studies.empty? %>
-            <% options << "<optgroup label=\"#{truncate(i.title, :length => 64)}\">\n" %>
+          <% options << "<optgroup label=\"#{truncate(h(i.title), :length => 64)}\">\n" %>
             <% studies.each do |s| %>
-                <% options << "<option #{"selected=\"selected\"" if @assay.study && (s.id == @assay.study.id)} value=\"#{s.id}\" style=\"z-index:0;\" onMouseOver=\"showTitle(\'#{s.title}\')\">#{truncate(s.title, :length => 64)}</option>\n" %>
+            <% options << "<option #{"selected=\"selected\"" if @assay.study && (s.id == @assay.study.id)} value=\"#{s.id}\" style=\"z-index:0;\" onMouseOver=\"showTitle(\'#{h(s.title)}\')\">#{truncate(h(s.title), :length => 64)}</option>\n" %>
             <% end %>
             <% options << "</optgroup>" %>
         <% end %>
@@ -95,7 +95,7 @@
     <%= render :partial=>"assays/select_organisms" -%>
 </div>
  <p>
-      <%= f.fancy_multiselect :scales,{:object_type_text=>@assay_text,:possibilities=>sort_scales(Scale.all)} -%>
+      <%= f.fancy_multiselect :scales,{:object_type_text=>@assay_text,:possibilities=>sort_scales(Scale.all)} if @assay.is_scalable?-%>
  </p>
 
 <br style="clear:both"/>
@@ -111,7 +111,7 @@
 <%= render :partial=>"assays/associate_sop",:locals=>{:f=>f, :resource => @assay} -%>
 
 <%  if @assay.is_modelling? -%>
-  <%= render :partial=>"assays/associate_model",:locals=>{:f=>f, :resource => @assay} -%>
+  <%= render :partial=>"assets/associate_model",:locals=>{:f=>f, :resource => @assay} -%>
 <% end -%>
 
 <%= render :partial => "assets/associate_data_file",:locals=>{:f=>f, :resource => @assay,:show_relationships=>@assay.is_modelling?} -%>

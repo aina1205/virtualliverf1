@@ -13,7 +13,7 @@ class ModelImagesController < ApplicationController
          file_specified = true
          @model_image = ModelImage.new params[:model_image]
          @model_image.model_id = params[:model_id]
-         @model_image.original_content_type = params[:model_image][:image_file].content_type
+         @model_image.content_type = params[:model_image][:image_file].content_type
          @model_image.original_filename =  params[:model_image][:image_file].original_filename
        else
          file_specified = false
@@ -52,12 +52,15 @@ class ModelImagesController < ApplicationController
     end
     size = size[0..-($1.length.to_i + 2)] if size =~ /[0-9]+x[0-9]+\.([a-z0-9]+)/ # trim file extension
 
+    size = filter_size size
+
     id = params[:id].to_i
 
     if !cache_exists?(id, size) # look in file system cache before attempting db access
       # resize (keeping image side ratio), encode and cache the picture
       @model_image.operate do |image|
-        image.resize size
+        Rails.logger.info "resizing to #{size}"
+        image.resize size, :upsample=>true
         @image_binary = image.image.to_blob
       end
       # cache data
@@ -72,6 +75,28 @@ class ModelImagesController < ApplicationController
         @cache_file=full_cache_path(id, size)
         @type='image/jpeg'
       end
+    end
+  end
+
+  def filter_size size
+    max_size=1500
+    matches = size.match /([0-9]+)x([0-9]+).*/
+    if matches
+      width = matches[1].to_i
+      height = matches[2].to_i
+      width = max_size if width>max_size
+      height = max_size if height>max_size
+      return "#{width}x#{height}"
+    else
+      matches = size.match /([0-9]+)/
+      if matches
+        width=matches[1].to_i
+        width = max_size if width>max_size
+        return "#{width}"
+      else
+        return "900"
+      end
+
     end
 
   end
@@ -128,16 +153,18 @@ class ModelImagesController < ApplicationController
       if @model_instance.can_view? current_user
         @model_images = ModelImage.find(:all,:conditions=>{:model_id=>@image_for_id})
       else
-       flash[:error] = "You can only view images that belong to you"
-       redirect_to model_path @model_instance
+       flash[:error] = "You can only view images for models you can access"
+       redirect_to root_path
       end
   end
 
 
   def find_model_image_auth
-     unless @model_instance.can_edit? current_user
-       flash[:error] = "You can only view and, possibly, manage images of models when you can edit this model."
-       redirect_to url_for @model_instance
+
+     action = translate_action(action_name)
+     unless is_auth?(@model_instance,action)
+       flash[:error] = "You can only #{action} images for models you can access"
+       redirect_to root_path
        return false
      end
 
