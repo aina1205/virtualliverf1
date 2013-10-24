@@ -10,7 +10,7 @@ namespace :seek do
   #these are the tasks required for this version upgrade
   task :upgrade_version_tasks=>[
             :environment,
-            :reordering_authors_for_existing_publications,
+           #:reordering_authors_for_existing_publications,
             :cleanup_asset_versions_projects_duplication,
             :update_missing_content_types,
             :repopulate_auth_lookup_tables,
