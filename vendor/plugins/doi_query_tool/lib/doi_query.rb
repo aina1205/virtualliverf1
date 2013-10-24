@@ -87,6 +87,20 @@ class DoiQuery
       date = article.find_first('//publication_date')
       params[:pub_date] = date.nil? ? nil : parse_date(date)
 
+
+      if article.find_first('//journal_metadata/abbrev_title')
+        citation_iso_abbrev = article.find_first('//journal_metadata/abbrev_title').content
+      elsif article.find_first('//title')
+        citation_iso_abbrev = article.find_first('//title').content
+      else
+        citation_iso_abbrev = ""
+      end
+      citation_volume = article.find_first('.//volume')? article.find_first('.//volume').content : ""
+      citation_issue = article.find_first('.//issue')? "(" + article.find_first('.//issue').content + ")" : ""
+      citation_first_page = article.find_first('.//first_page')? " : " + article.find_first('.//first_page').content : ""
+      params[:citation] = citation_iso_abbrev + " " + citation_volume +  citation_issue + citation_first_page
+
+
     rescue Exception => ex
       params={:error=>"Unable to process the metadata for that DOI"}
     end

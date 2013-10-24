@@ -25,43 +25,32 @@ class ScalesController < ApplicationController
 
    def scale_search
     @scale = Scale.find_by_title(params[:scale_type])
-    @scaled_objects = @scale ? @scale.scalings.collect(&:scalable).compact.uniq : everything
+    resource_hash = {}
 
-    resource_hash={}
-    @scaled_objects.each do |res|
-      resource_hash[res.class.name] = {:items => [], :hidden_count => 0} unless resource_hash[res.class.name]
-      resource_hash[res.class.name][:items] << res
-    end
-
-    resource_hash.each do |key,res|
-      res[:items].compact!      
-      unless res[:items].empty?
-        total_count = res[:items].size
-        res[:items] = key.constantize.authorized_partial_asset_collection res[:items], "view", User.current_user
-        res[:hidden_count] = total_count - res[:items].size
+    if @scale
+      scalables = Scaling.find(:all, :include => :scalable, :conditions => ["scale_id=?", @scale.id]).collect(&:scalable).compact.uniq
+      grouped_scalings = scalables.group_by { |scalable| scalable.class.name }
+      grouped_scalings.each do |key, value|
+        resource_hash[key] = value
+      end if !grouped_scalings.blank?
+    else
+      Seek::Util.user_creatable_types.each do |klass|
+        items = klass.all
+        resource_hash["#{klass}"] = items if items.count > 0
       end
     end
 
     render :update do |page|
       scale_title = @scale.try(:title) || 'all'
-      page.replace_html "#{scale_title}_results", :partial=>"assets/resource_listing_tabbed_by_class", :locals =>{:resource_hash=>resource_hash, 
-                                                                                                                  :narrow_view => true, :authorization_already_done => true, 
-                                                                                                                  :limit => 20,
-                                                                                                                  :tabs_id => "#{scale_title}_resource_listing_tabbed_by_class",
-                                                                                                                  :actions_partial_disable => true}
-      page.replace_html "js_for_tabber", :partial => "assets/force_loading_tabber"
+      page.replace_html "#{scale_title}_results", :partial=>"assets/resource_tabbed_lazy_loading",
+                        :locals =>{:scale_title => scale_title,
+                                   :tabs_id => "resource_tabbed_lazy_loading_#{scale_title}",
+                                   :resource_hash => resource_hash }
     end
-
    end
 
 
   private
-
-   def everything
-    Seek::Util.user_creatable_types.inject([]) do |items, klass|
-      items + klass.all
-    end
-  end
 
   #Removes all results from the search results collection passed in that are not Authorised to show for the current_user
   def select_authorised collection

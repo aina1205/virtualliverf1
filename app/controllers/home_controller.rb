@@ -5,11 +5,6 @@ class HomeController < ApplicationController
 
 
   def index
-    @scale = Scale.find_by_title(params[:scale_type])
-    @scale ||= Scale.find_by_title('organism') #temporary to avoid expense of dealing with every object
-    #@scale = nil if params[:scale_type] == 'all'
-    @scaled_objects = @scale ? @scale.scalings.collect(&:scalable).compact.uniq : everything
-
     respond_to do |format|
       format.html # index.html.erb      
     end
@@ -38,7 +33,7 @@ class HomeController < ApplicationController
       flash[:error]="You must provide a Subject and details"
       render :action=>:feedback
     else
-      if verify_recaptcha && Seek::Config.email_enabled
+      if ( Seek::Config.recaptcha_enabled ? verify_recaptcha : true) && Seek::Config.email_enabled
         Mailer.deliver_feedback(current_user,@subject,@details,@anon,base_host)
         flash[:notice]="Your feedback has been delivered. Thank You."
         redirect_to root_path
@@ -71,12 +66,6 @@ class HomeController < ApplicationController
   private
 
   RECENT_SIZE=3
-
-  def everything
-    Seek::Util.user_creatable_types.inject([]) do |items, klass|
-      items + klass.all
-    end
-  end
 
   def classify_for_tabs result_collection
     #FIXME: this is duplicated in application_helper - but of course you can't call that from within controller

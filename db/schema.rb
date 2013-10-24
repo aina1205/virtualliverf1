@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20130214135530) do
+ActiveRecord::Schema.define(:version => 20131015144138) do
 
   create_table "activity_logs", :force => true do |t|
     t.string   "action"
@@ -189,28 +189,7 @@ ActiveRecord::Schema.define(:version => 20130214135530) do
     t.datetime "updated_at"
   end
 
-  add_index "assets_creators", ["asset_id", "asset_type"], :name => "assets_creators_indx"
   add_index "assets_creators", ["asset_id", "asset_type"], :name => "index_assets_creators_on_asset_id_and_asset_type"
-
-  create_table "attachments", :force => true do |t|
-    t.integer  "size"
-    t.integer  "height"
-    t.integer  "width"
-    t.integer  "parent_id"
-    t.integer  "attachable_id"
-    t.integer  "position"
-    t.string   "content_type"
-    t.string   "filename"
-    t.string   "thumbnail"
-    t.string   "attachable_type"
-    t.datetime "created_at"
-    t.datetime "updated_at"
-    t.string   "data_url"
-    t.string   "original_filename"
-  end
-
-  add_index "attachments", ["attachable_id", "attachable_type"], :name => "index_attachments_on_attachable_id_and_attachable_type"
-  add_index "attachments", ["parent_id"], :name => "index_attachments_on_parent_id"
 
   create_table "auth_lookup_update_queues", :force => true do |t|
     t.integer  "item_id"
@@ -270,7 +249,6 @@ ActiveRecord::Schema.define(:version => 20130214135530) do
     t.boolean "is_webpage",                              :default => false
   end
 
-  add_index "content_blobs", ["asset_id", "asset_type", "asset_version"], :name => "content_blobs_idx"
   add_index "content_blobs", ["asset_id", "asset_type"], :name => "index_content_blobs_on_asset_id_and_asset_type"
 
   create_table "culture_growth_types", :force => true do |t|
@@ -299,8 +277,8 @@ ActiveRecord::Schema.define(:version => 20130214135530) do
     t.boolean "can_delete",   :default => false
   end
 
-  add_index "data_file_auth_lookup", ["user_id", "asset_id", "can_view"], :name => "data_file_auth_lookup_idx"
   add_index "data_file_auth_lookup", ["user_id", "asset_id", "can_view"], :name => "index_data_file_auth_lookup_on_user_id_and_asset_id_and_can_view"
+  add_index "data_file_auth_lookup", ["user_id", "can_view"], :name => "index_data_file_auth_lookup_on_user_id_and_can_view"
 
   create_table "data_file_versions", :force => true do |t|
     t.integer  "data_file_id"
@@ -526,8 +504,6 @@ ActiveRecord::Schema.define(:version => 20130214135530) do
     t.integer  "specimen_id"
   end
 
-  add_index "genotypes", ["strain_id"], :name => "genotypes_idx"
-
   create_table "group_memberships", :force => true do |t|
     t.integer  "person_id"
     t.integer  "work_group_id"
@@ -542,11 +518,6 @@ ActiveRecord::Schema.define(:version => 20130214135530) do
   create_table "group_memberships_project_roles", :id => false, :force => true do |t|
     t.integer "group_membership_id"
     t.integer "project_role_id"
-  end
-
-  create_table "group_memberships_roles", :id => false, :force => true do |t|
-    t.integer "group_membership_id"
-    t.integer "role_id"
   end
 
   create_table "help_attachments", :force => true do |t|
@@ -660,7 +631,7 @@ ActiveRecord::Schema.define(:version => 20130214135530) do
   end
 
   add_index "model_auth_lookup", ["user_id", "asset_id", "can_view"], :name => "index_model_auth_lookup_on_user_id_and_asset_id_and_can_view"
-  add_index "model_auth_lookup", ["user_id", "asset_id", "can_view"], :name => "model_auth_lookup_idx"
+  add_index "model_auth_lookup", ["user_id", "can_view"], :name => "index_model_auth_lookup_on_user_id_and_can_view"
 
   create_table "model_formats", :force => true do |t|
     t.string   "title"
@@ -887,7 +858,7 @@ ActiveRecord::Schema.define(:version => 20130214135530) do
     t.boolean "can_delete",   :default => false
   end
 
-  add_index "presentation_auth_lookup", ["user_id", "asset_id", "can_view"], :name => "presentation_auth_lookup_idx"
+  add_index "presentation_auth_lookup", ["user_id", "can_view"], :name => "index_presentation_auth_lookup_on_user_id_and_can_view"
 
   create_table "presentation_versions", :force => true do |t|
     t.integer  "presentation_id"
@@ -1069,6 +1040,7 @@ ActiveRecord::Schema.define(:version => 20130214135530) do
     t.string   "uuid"
     t.integer  "policy_id"
     t.integer  "publication_type",              :default => 1
+    t.string   "citation"
   end
 
   add_index "publications", ["contributor_id", "contributor_type"], :name => "index_publications_on_contributor_id_and_contributor_type"
@@ -1109,12 +1081,6 @@ ActiveRecord::Schema.define(:version => 20130214135530) do
     t.string   "culprit_type"
     t.integer  "culprit_id"
     t.integer  "publish_state"
-    t.datetime "created_at"
-    t.datetime "updated_at"
-  end
-
-  create_table "roles", :force => true do |t|
-    t.string   "name"
     t.datetime "created_at"
     t.datetime "updated_at"
   end

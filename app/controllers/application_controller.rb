@@ -17,7 +17,7 @@ class ApplicationController < ActionController::Base
   ActiveRecord::RecordNotFound => "404",
   ::ActionController::UnknownController => "404",
   ::ActionController::UnknownAction => "404",
-  ::ActionController::RoutingError => "404",  
+  ::ActionController::RoutingError => "404",
   ::ActionView::MissingTemplate => "406",
   ::ActionView::TemplateError => "500"
   }
@@ -76,7 +76,7 @@ class ApplicationController < ActionController::Base
     return  "http://#{base_host}"
   end
   helper_method :application_root
-  
+
 
   def self.fast_auto_complete_for(object, method, options = {})
     define_method("auto_complete_for_#{object}_#{method}") do
@@ -170,6 +170,42 @@ class ApplicationController < ActionController::Base
         page.visual_effect :toggle_blind, "view_#{resource_type}s", :duration => 0.05
         page.visual_effect :toggle_blind, "view_#{resource_type}s_and_extra", :duration => 0.05
       end
+    end
+  end
+
+  def resource_in_tab
+    resource_type = params[:resource_type]
+    view_type = params[:view_type]
+    scale_title = params[:scale_title] || ''
+
+    if params[:actions_partial_disable] == "true"
+      actions_partial_disable = true
+    else
+      actions_partial_disable = false
+    end
+
+
+    resource_ids = (params[:resource_ids] || []).split(',')
+    clazz = resource_type.constantize
+    resources = clazz.find_all_by_id(resource_ids)
+    if clazz.respond_to?(:authorized_partial_asset_collection)
+      authorized_resources = clazz.authorized_partial_asset_collection(resources,"view")
+    elsif resource_type == 'Project' || resource_type == 'Institution'
+      authorized_resources = resources
+    elsif resource_type == "Person" && Seek::Config.is_virtualliver && User.current_user.nil?
+      authorized_resources = []
+    else
+      authorized_resources = resources.select &:can_view?
+    end
+
+    render :update do |page|
+        page.replace_html "#{scale_title}_#{resource_type}_#{view_type}",
+                          :partial => "assets/resource_in_tab",
+                          :locals => {:resources => resources,
+                                      :scale_title => scale_title,
+                                      :authorized_resources => authorized_resources,
+                                      :view_type => view_type,
+                                      :actions_partial_disable => actions_partial_disable}
     end
   end
 
