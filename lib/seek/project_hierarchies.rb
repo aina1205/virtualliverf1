@@ -112,14 +112,12 @@ module Seek
         end
 
         def projects
-          @known_projects ||= direct_projects.collect { |proj| [proj] + proj.ancestors }.flatten.uniq
-          @known_projects
+          direct_projects.collect { |proj| [proj] + proj.ancestors }.flatten.uniq
         end
 
 
         def projects_and_descendants
-          @project_and_descendants ||= direct_projects.collect { |proj| [proj] + proj.descendants }.flatten.uniq
-          @project_and_descendants
+          direct_projects.collect { |proj| [proj] + proj.descendants }.flatten.uniq
         end
       end
 
