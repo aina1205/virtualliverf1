@@ -62,7 +62,7 @@ class ApplicationController < ActionController::Base
 
   layout "main"
 
-  protect_from_forgery
+  protect_from_forgery :except=> [:resource_in_tab]
 
   def set_no_layout
     self.class.layout nil
