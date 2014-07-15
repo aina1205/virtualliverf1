@@ -7,6 +7,8 @@ env:
   - SUITE="integration"
 
 before_install:
+  - gem update --system 1.8.25
+  - gem --version
   - bundle config build.nokogiri --use-system-libraries
 script:
   - mv config/database.cc.yml config/database.yml
