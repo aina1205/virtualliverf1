@@ -264,8 +264,12 @@ test 'should get index for non-project member, should for non-login user' do
     user = Factory :user
     project = user.person.projects.first
     login_as(user)
-    sop = Factory :sop,:description=>"http://news.bbc.co.uk",:projects=>[project],:contributor=>user
+    sop = Factory :sop,:description=>"http://news.bbc.co.uk",:project_ids=>[project.id],:contributor=>user
     get :show,:id=>project
+    assert_response :success
+
+    post :resource_in_tab, {:resource_ids => [sop.id].join(","), :resource_type => "Sop", :view_type => "view_some", :scale_title => "all", :actions_partial_disable => 'false'}
+
     assert_select "div.list_item div.list_item_desc" do
       assert_select "a[rel=?]","nofollow",:text=>/news\.bbc\.co\.uk/,:count=>1
     end
@@ -275,8 +279,12 @@ test 'should get index for non-project member, should for non-login user' do
     user = Factory :user
     project = user.person.projects.first
     login_as(user)
-    df = Factory :data_file,:description=>"http://news.bbc.co.uk",:projects=>[project],:contributor=>user
+    df = Factory :data_file,:description=>"http://news.bbc.co.uk",:project_ids=>[project.id],:contributor=>user
     get :show,:id=>project
+    assert_response :success
+
+    post :resource_in_tab, {:resource_ids => [df.id].join(","), :resource_type => "DataFile", :view_type => "view_some", :scale_title => "all", :actions_partial_disable => 'false'}
+    puts @response.body
     assert_select "div.list_item div.list_item_desc" do
       assert_select "a[rel=?]","nofollow",:text=>/news\.bbc\.co\.uk/,:count=>1
     end
@@ -286,8 +294,9 @@ test 'should get index for non-project member, should for non-login user' do
     user = Factory :user
     project = user.person.projects.first
     login_as(user)
-    model = Factory :model,:description=>"http://news.bbc.co.uk",:projects=>[project],:contributor=>user
+    model = Factory :model,:description=>"http://news.bbc.co.uk",:project_ids=>[project.id],:contributor=>user
     get :show,:id=>project
+    post :resource_in_tab, {:resource_ids => [model.id].join(","), :resource_type => "Model", :view_type => "view_some", :scale_title => "all", :actions_partial_disable => 'false'}
     assert_select "div.list_item div.list_item_desc" do
       assert_select "a[rel=?]","nofollow",:text=>/news\.bbc\.co\.uk/,:count=>1
     end
